@@ -2,3 +2,6 @@ project_id = "upbgiacddynyryfnspdv"
 
 [functions.matcha-recommendations]
 verify_jwt = false
+
+[functions.financial-analysis]
+verify_jwt = false
