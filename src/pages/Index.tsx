@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { InventoryTable } from "@/components/dashboard/InventoryTable";
@@ -26,6 +26,7 @@ import {
   useClientAllocations,
 } from "@/hooks/useMatchaData";
 import { useStockChangeRequests } from "@/hooks/useStockChangeRequests";
+import { useAuth } from "@/hooks/useAuth";
 import { ClientProfitability } from "@/types/database";
 import { 
   DollarSign, 
@@ -36,10 +37,13 @@ import {
   ShieldCheck,
   Info,
   Calculator,
-  Brain
+  Brain,
+  Lock
 } from "lucide-react";
 
 const Index = () => {
+  const { isAdmin, permissions } = useAuth();
+
   const { data: products = [], isLoading: productsLoading } = useMatchaProducts();
   const { data: clients = [], isLoading: clientsLoading } = useClients();
   const { data: orders = [], isLoading: ordersLoading } = useClientOrders();
@@ -48,8 +52,28 @@ const Index = () => {
   const { data: arrivals = [], isLoading: arrivalsLoading } = useWarehouseArrivals();
   const { data: allocations = [], isLoading: allocationsLoading } = useClientAllocations();
 
-  // Main navigation tab state
-  const [mainTab, setMainTab] = useState("financials");
+  // Check permissions
+  const canAccessFinancials = isAdmin || permissions?.can_access_financials;
+  const canAccessOperations = isAdmin || permissions?.can_access_operations;
+  const canAccessSandbox = isAdmin || permissions?.can_access_sandbox;
+
+  // Main navigation tab state - default to first accessible tab
+  const getDefaultTab = () => {
+    if (canAccessFinancials) return "financials";
+    if (canAccessOperations) return "operations";
+    if (canAccessSandbox) return "sandbox";
+    return "financials";
+  };
+
+  const [mainTab, setMainTab] = useState(getDefaultTab());
+
+  // Update tab when permissions change
+  useEffect(() => {
+    const defaultTab = getDefaultTab();
+    if (!canAccessFinancials && mainTab === "financials") setMainTab(defaultTab);
+    if (!canAccessOperations && mainTab === "operations") setMainTab(defaultTab);
+    if (!canAccessSandbox && mainTab === "sandbox") setMainTab(defaultTab);
+  }, [canAccessFinancials, canAccessOperations, canAccessSandbox]);
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -176,8 +200,26 @@ const Index = () => {
           />
         </div>
 
+        {/* No Access Message */}
+        {!canAccessFinancials && !canAccessOperations && !canAccessSandbox && (
+          <Card className="max-w-lg mx-auto">
+            <CardContent className="pt-6 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="p-4 rounded-full bg-muted">
+                  <Lock className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">No Access Granted</h3>
+              <p className="text-muted-foreground">
+                You don't have permission to access any dashboard sections yet. 
+                Please contact an administrator to request access.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Financials Content */}
-        {mainTab === "financials" && (
+        {mainTab === "financials" && canAccessFinancials && (
           <div className="space-y-6">
             {/* Revenue Chart */}
             <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
@@ -254,7 +296,7 @@ const Index = () => {
         )}
 
         {/* Operations Content */}
-        {mainTab === "operations" && (
+        {mainTab === "operations" && canAccessOperations && (
           <div className="space-y-6">
             <Tabs defaultValue="inventory" className="space-y-4">
               <TabsList>
@@ -316,7 +358,7 @@ const Index = () => {
         )}
 
         {/* Sandbox Content */}
-        {mainTab === "sandbox" && (
+        {mainTab === "sandbox" && canAccessSandbox && (
           <ProfitabilitySandbox
             clients={clients}
             products={products}
