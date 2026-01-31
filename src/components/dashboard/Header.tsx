@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Leaf, BarChart3, Boxes, FlaskConical, Shield, LogOut, User } from "lucide-react";
+import { Leaf, BarChart3, Boxes, FlaskConical, Shield, LogOut, BookOpen } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,12 +17,14 @@ interface HeaderProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   pendingCount?: number;
+  onRestartTutorial?: () => void;
 }
 
 export function Header({
   activeTab,
   onTabChange,
   pendingCount = 0,
+  onRestartTutorial,
 }: HeaderProps) {
   const navigate = useNavigate();
   const { user, profile, isAdmin, permissions, signOut } = useAuth();
@@ -40,6 +42,16 @@ export function Header({
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
+  };
+
+  const handleRestartTutorial = () => {
+    // Clear the tutorial dismissed flag and trigger restart
+    if (user) {
+      localStorage.removeItem(`matsu-tutorial-progress-dismissed-${user.id}`);
+    }
+    onRestartTutorial?.();
+    // Reload to trigger tutorial
+    window.location.reload();
   };
 
   // Check if user can access each tab
@@ -63,51 +75,53 @@ export function Header({
           </div>
 
           {/* Navigation Tabs */}
-          <Tabs value={activeTab} onValueChange={onTabChange}>
-            <TabsList className="h-10 bg-muted/50 p-1">
-              {canAccessFinancials && (
-                <TabsTrigger 
-                  value="financials" 
-                  className={cn(
-                    "flex items-center gap-2 px-4 transition-all",
-                    "data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                  )}
-                >
-                  <BarChart3 className="h-4 w-4" />
-                  <span className="hidden sm:inline font-medium">Financials</span>
-                </TabsTrigger>
-              )}
-              {canAccessOperations && (
-                <TabsTrigger 
-                  value="operations" 
-                  className={cn(
-                    "flex items-center gap-2 px-4 transition-all",
-                    "data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                  )}
-                >
-                  <Boxes className="h-4 w-4" />
-                  <span className="hidden sm:inline font-medium">Operations</span>
-                  {pendingCount > 0 && (
-                    <span className="ml-1 flex items-center justify-center min-w-5 h-5 rounded-full bg-amber-500 text-amber-50 px-1.5 text-xs font-semibold">
-                      {pendingCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-              )}
-              {canAccessSandbox && (
-                <TabsTrigger 
-                  value="sandbox" 
-                  className={cn(
-                    "flex items-center gap-2 px-4 transition-all",
-                    "data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                  )}
-                >
-                  <FlaskConical className="h-4 w-4" />
-                  <span className="hidden sm:inline font-medium">Sandbox</span>
-                </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
+          <div data-tutorial="navigation-tabs">
+            <Tabs value={activeTab} onValueChange={onTabChange}>
+              <TabsList className="h-10 bg-muted/50 p-1">
+                {canAccessFinancials && (
+                  <TabsTrigger 
+                    value="financials" 
+                    className={cn(
+                      "flex items-center gap-2 px-4 transition-all",
+                      "data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    )}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="hidden sm:inline font-medium">Financials</span>
+                  </TabsTrigger>
+                )}
+                {canAccessOperations && (
+                  <TabsTrigger 
+                    value="operations" 
+                    className={cn(
+                      "flex items-center gap-2 px-4 transition-all",
+                      "data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    )}
+                  >
+                    <Boxes className="h-4 w-4" />
+                    <span className="hidden sm:inline font-medium">Operations</span>
+                    {pendingCount > 0 && (
+                      <span className="ml-1 flex items-center justify-center min-w-5 h-5 rounded-full bg-amber-500 text-amber-50 px-1.5 text-xs font-semibold">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                )}
+                {canAccessSandbox && (
+                  <TabsTrigger 
+                    value="sandbox" 
+                    className={cn(
+                      "flex items-center gap-2 px-4 transition-all",
+                      "data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    )}
+                  >
+                    <FlaskConical className="h-4 w-4" />
+                    <span className="hidden sm:inline font-medium">Sandbox</span>
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </Tabs>
+          </div>
 
           {/* User Menu */}
           <div className="flex items-center gap-2">
@@ -140,15 +154,20 @@ export function Header({
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleRestartTutorial}>
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Restart Tutorial
+                </DropdownMenuItem>
                 {isAdmin && (
                   <>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/admin')}>
                       <Shield className="mr-2 h-4 w-4" />
                       Admin Dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                   </>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
