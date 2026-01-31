@@ -101,6 +101,7 @@ export function OrdersManagement({ orders, clients, products, isLoading }: Order
       unit_price: unitPrice,
       total_revenue: totalRevenue,
       order_date: formData.order_date,
+      scheduled_delivery_date: null,
       status: formData.status,
     }, {
       onSuccess: () => {

@@ -3,6 +3,7 @@ import { Header } from "@/components/dashboard/Header";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { InventoryTable } from "@/components/dashboard/InventoryTable";
 import { ClientProfitabilityTable } from "@/components/dashboard/ClientProfitabilityTable";
+import { ClientPricingTable } from "@/components/dashboard/ClientPricingTable";
 import { RecommendationsPanel } from "@/components/dashboard/RecommendationsPanel";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { InventoryManagement } from "@/components/dashboard/InventoryManagement";
@@ -33,7 +34,8 @@ import {
   Users,
   AlertTriangle,
   ShieldCheck,
-  Info
+  Info,
+  Calculator
 } from "lucide-react";
 
 const Index = () => {
@@ -180,13 +182,30 @@ const Index = () => {
             <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
             
             {/* Financial Sub-tabs */}
-            <Tabs defaultValue="analysis" className="space-y-4">
+            <Tabs defaultValue="pricing" className="space-y-4">
               <TabsList>
+                <TabsTrigger value="pricing" className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Client Pricing & Costs
+                </TabsTrigger>
                 <TabsTrigger value="analysis">AI Analysis & Forecast</TabsTrigger>
                 <TabsTrigger value="orders">Sales Orders</TabsTrigger>
                 <TabsTrigger value="clients">Client Profitability</TabsTrigger>
                 <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="pricing">
+                <ClientPricingTable
+                  clients={clients}
+                  products={products}
+                  orders={filteredOrders}
+                  suppliers={suppliers}
+                  supplierProducts={supplierProducts}
+                  arrivals={arrivals}
+                  allocations={allocations}
+                  isLoading={isLoading || isInventoryLoading}
+                />
+              </TabsContent>
 
               <TabsContent value="analysis">
                 <FinancialAnalysis 

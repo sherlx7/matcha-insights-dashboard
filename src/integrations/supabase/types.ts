@@ -70,6 +70,7 @@ export type Database = {
           order_date: string
           product_id: string
           quantity_kg: number
+          scheduled_delivery_date: string | null
           status: string
           total_revenue: number | null
           unit_price: number
@@ -81,6 +82,7 @@ export type Database = {
           order_date?: string
           product_id: string
           quantity_kg: number
+          scheduled_delivery_date?: string | null
           status?: string
           total_revenue?: number | null
           unit_price: number
@@ -92,6 +94,7 @@ export type Database = {
           order_date?: string
           product_id?: string
           quantity_kg?: number
+          scheduled_delivery_date?: string | null
           status?: string
           total_revenue?: number | null
           unit_price?: number
@@ -119,6 +122,8 @@ export type Database = {
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          delivery_day_of_month: number | null
+          discount_percent: number | null
           id: string
           name: string
           updated_at: string
@@ -128,6 +133,8 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          delivery_day_of_month?: number | null
+          discount_percent?: number | null
           id?: string
           name: string
           updated_at?: string
@@ -137,6 +144,8 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          delivery_day_of_month?: number | null
+          discount_percent?: number | null
           id?: string
           name?: string
           updated_at?: string
@@ -187,6 +196,7 @@ export type Database = {
       matcha_products: {
         Row: {
           cost_per_kg: number
+          cost_per_kg_jpy: number | null
           created_at: string
           grade: string
           id: string
@@ -195,12 +205,14 @@ export type Database = {
           quality_score: number
           reorder_point_kg: number | null
           reorder_quantity_kg: number | null
+          selling_price_per_kg: number | null
           status: string
           stock_kg: number
           updated_at: string
         }
         Insert: {
           cost_per_kg: number
+          cost_per_kg_jpy?: number | null
           created_at?: string
           grade: string
           id?: string
@@ -209,12 +221,14 @@ export type Database = {
           quality_score: number
           reorder_point_kg?: number | null
           reorder_quantity_kg?: number | null
+          selling_price_per_kg?: number | null
           status?: string
           stock_kg?: number
           updated_at?: string
         }
         Update: {
           cost_per_kg?: number
+          cost_per_kg_jpy?: number | null
           created_at?: string
           grade?: string
           id?: string
@@ -223,6 +237,7 @@ export type Database = {
           quality_score?: number
           reorder_point_kg?: number | null
           reorder_quantity_kg?: number | null
+          selling_price_per_kg?: number | null
           status?: string
           stock_kg?: number
           updated_at?: string
@@ -346,6 +361,7 @@ export type Database = {
           contact_phone: string | null
           country: string | null
           created_at: string
+          exchange_rate_jpy_usd: number | null
           id: string
           lead_time_days: number | null
           name: string
@@ -358,6 +374,7 @@ export type Database = {
           contact_phone?: string | null
           country?: string | null
           created_at?: string
+          exchange_rate_jpy_usd?: number | null
           id?: string
           lead_time_days?: number | null
           name: string
@@ -370,6 +387,7 @@ export type Database = {
           contact_phone?: string | null
           country?: string | null
           created_at?: string
+          exchange_rate_jpy_usd?: number | null
           id?: string
           lead_time_days?: number | null
           name?: string
@@ -382,7 +400,9 @@ export type Database = {
         Row: {
           arrival_date: string
           batch_number: string | null
+          cost_per_kg_jpy: number | null
           created_at: string
+          exchange_rate_used: number | null
           expiry_date: string | null
           id: string
           notes: string | null
@@ -395,7 +415,9 @@ export type Database = {
         Insert: {
           arrival_date?: string
           batch_number?: string | null
+          cost_per_kg_jpy?: number | null
           created_at?: string
+          exchange_rate_used?: number | null
           expiry_date?: string | null
           id?: string
           notes?: string | null
@@ -408,7 +430,9 @@ export type Database = {
         Update: {
           arrival_date?: string
           batch_number?: string | null
+          cost_per_kg_jpy?: number | null
           created_at?: string
+          exchange_rate_used?: number | null
           expiry_date?: string | null
           id?: string
           notes?: string | null
