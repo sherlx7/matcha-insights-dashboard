@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { InventoryTable } from "@/components/dashboard/InventoryTable";
@@ -7,7 +7,10 @@ import { RecommendationsPanel } from "@/components/dashboard/RecommendationsPane
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { InventoryManagement } from "@/components/dashboard/InventoryManagement";
 import { OrdersManagement } from "@/components/dashboard/OrdersManagement";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateRange } from "react-day-picker";
+import { isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   useMatchaProducts, 
@@ -36,14 +39,30 @@ const Index = () => {
   const { data: arrivals = [], isLoading: arrivalsLoading } = useWarehouseArrivals();
   const { data: allocations = [], isLoading: allocationsLoading } = useClientAllocations();
 
+  // Date range filter state
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+
+  // Filter orders by date range
+  const filteredOrders = useMemo(() => {
+    if (!dateRange?.from) return orders;
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      const start = startOfDay(dateRange.from!);
+      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from!);
+      return isWithinInterval(orderDate, { start, end });
+    });
+  }, [orders, dateRange]);
+
   // Calculate client profitability
   const clientProfitability: ClientProfitability[] = useMemo(() => {
-    if (!clients.length || !orders.length || !products.length) return [];
+    if (!clients.length || !filteredOrders.length || !products.length) return [];
 
     const productMap = new Map(products.map(p => [p.id, p]));
 
     return clients.map(client => {
-      const clientOrders = orders.filter(o => o.client_id === client.id);
+      const clientOrders = filteredOrders.filter(o => o.client_id === client.id);
+      
       const ordersWithProducts = clientOrders.map(order => ({
         ...order,
         product: productMap.get(order.product_id)!,
@@ -65,7 +84,7 @@ const Index = () => {
       };
     }).filter(c => c.orders.length > 0)
       .sort((a, b) => b.profit - a.profit);
-  }, [clients, orders, products]);
+  }, [clients, filteredOrders, products]);
 
   // Calculate KPI totals
   const kpis = useMemo(() => {
@@ -95,12 +114,18 @@ const Index = () => {
       <Header />
       
       <main className="container py-6 space-y-6">
+        {/* Date Range Filter */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Dashboard Overview</h2>
+          <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
+        </div>
+
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <KPICard
             title="Total Revenue"
             value={`$${kpis.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle="All time"
+            subtitle={dateRange?.from ? "Selected period" : "All time"}
             icon={DollarSign}
           />
           <KPICard
@@ -132,7 +157,7 @@ const Index = () => {
         </div>
 
         {/* Revenue Chart */}
-        <RevenueChart orders={orders} products={products} />
+        <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="inventory" className="space-y-4">

@@ -2,48 +2,62 @@ import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ClientOrder, MatchaProduct } from "@/types/database";
-import { format, subDays, eachDayOfInterval, startOfDay } from "date-fns";
+import { format, startOfWeek, endOfWeek, eachWeekOfInterval, isWithinInterval, subWeeks } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 interface RevenueChartProps {
   orders: ClientOrder[];
   products: MatchaProduct[];
+  dateRange?: DateRange;
 }
 
-export function RevenueChart({ orders, products }: RevenueChartProps) {
+export function RevenueChart({ orders, products, dateRange }: RevenueChartProps) {
   const chartData = useMemo(() => {
     const productMap = new Map(products.map(p => [p.id, p]));
-    const last30Days = eachDayOfInterval({
-      start: subDays(new Date(), 29),
-      end: new Date(),
-    });
+    
+    // Default to last 12 weeks if no date range
+    const endDate = dateRange?.to || new Date();
+    const startDate = dateRange?.from || subWeeks(endDate, 11);
+    
+    // Get all weeks in the interval
+    const weeks = eachWeekOfInterval({
+      start: startDate,
+      end: endDate,
+    }, { weekStartsOn: 1 }); // Monday start
 
-    return last30Days.map(date => {
-      const dayStart = startOfDay(date);
-      const dayOrders = orders.filter(order => {
-        const orderDate = startOfDay(new Date(order.order_date));
-        return orderDate.getTime() === dayStart.getTime();
+    return weeks.map(weekStart => {
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+      
+      const weekOrders = orders.filter(order => {
+        const orderDate = new Date(order.order_date);
+        return isWithinInterval(orderDate, { start: weekStart, end: weekEnd });
       });
 
-      const revenue = dayOrders.reduce((sum, order) => sum + Number(order.total_revenue), 0);
-      const cogs = dayOrders.reduce((sum, order) => {
+      const revenue = weekOrders.reduce((sum, order) => sum + Number(order.total_revenue), 0);
+      const cogs = weekOrders.reduce((sum, order) => {
         const product = productMap.get(order.product_id);
         return sum + (product ? Number(order.quantity_kg) * Number(product.cost_per_kg) : 0);
       }, 0);
 
       return {
-        date: format(date, "MMM d"),
+        date: format(weekStart, "MMM d"),
+        weekLabel: `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d")}`,
         revenue,
         cogs,
         profit: revenue - cogs,
       };
     });
-  }, [orders, products]);
+  }, [orders, products, dateRange]);
+
+  const dateRangeText = dateRange?.from && dateRange?.to
+    ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
+    : "Last 12 weeks";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Revenue & Profitability</CardTitle>
-        <CardDescription>Last 30 days performance</CardDescription>
+        <CardDescription>Weekly performance • {dateRangeText}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-64">
@@ -78,6 +92,7 @@ export function RevenueChart({ orders, products }: RevenueChartProps) {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "var(--radius)",
                 }}
+                labelFormatter={(_, payload) => payload[0]?.payload?.weekLabel || ''}
                 formatter={(value: number) => [`$${value.toFixed(2)}`, '']}
               />
               <Area
