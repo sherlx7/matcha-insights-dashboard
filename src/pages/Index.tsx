@@ -25,8 +25,7 @@ import {
   useClientAllocations,
 } from "@/hooks/useMatchaData";
 import { useStockChangeRequests } from "@/hooks/useStockChangeRequests";
-import { useDashboardSearch } from "@/hooks/useDashboardSearch";
-import { ClientProfitability, MatchaProduct, Client, ClientOrder } from "@/types/database";
+import { ClientProfitability } from "@/types/database";
 import { 
   DollarSign, 
   Package, 
@@ -96,27 +95,16 @@ const Index = () => {
       .sort((a, b) => b.profit - a.profit);
   }, [clients, filteredOrders, products]);
 
-  // Search functionality
-  const { searchQuery, setSearchQuery, filteredData, hasActiveSearch } = useDashboardSearch({
-    products,
-    clients,
-    orders: filteredOrders,
-    clientProfitability,
-  });
-
-  // Calculate KPI totals (use filtered data when search is active)
+  // Calculate KPI totals
   const kpis = useMemo(() => {
-    const displayProducts = hasActiveSearch ? filteredData.products : products;
-    const displayProfitability = hasActiveSearch ? filteredData.clientProfitability : clientProfitability;
-
-    const totalRevenue = displayProfitability.reduce((sum, c) => sum + c.totalRevenue, 0);
-    const totalCOGS = displayProfitability.reduce((sum, c) => sum + c.totalCOGS, 0);
+    const totalRevenue = clientProfitability.reduce((sum, c) => sum + c.totalRevenue, 0);
+    const totalCOGS = clientProfitability.reduce((sum, c) => sum + c.totalCOGS, 0);
     const totalProfit = totalRevenue - totalCOGS;
-    const avgMargin = displayProfitability.length > 0 
-      ? displayProfitability.reduce((sum, c) => sum + c.profitMargin, 0) / displayProfitability.length 
+    const avgMargin = clientProfitability.length > 0 
+      ? clientProfitability.reduce((sum, c) => sum + c.profitMargin, 0) / clientProfitability.length 
       : 0;
-    const totalStock = displayProducts.reduce((sum, p) => sum + Number(p.stock_kg), 0);
-    const lowStockCount = displayProducts.filter(p => 
+    const totalStock = products.reduce((sum, p) => sum + Number(p.stock_kg), 0);
+    const lowStockCount = products.filter(p => 
       Number(p.stock_kg) <= Number(p.reorder_point_kg || 20)
     ).length;
     
@@ -125,7 +113,7 @@ const Index = () => {
     const totalUnallocated = Math.max(0, totalStock - totalAllocated);
 
     return { totalRevenue, totalCOGS, totalProfit, avgMargin, totalStock, lowStockCount, totalAllocated, totalUnallocated };
-  }, [clientProfitability, products, allocations, hasActiveSearch, filteredData]);
+  }, [clientProfitability, products, allocations]);
 
   const isLoading = productsLoading || clientsLoading || ordersLoading;
   const isInventoryLoading = suppliersLoading || supplierProductsLoading || arrivalsLoading || allocationsLoading;
@@ -134,32 +122,15 @@ const Index = () => {
   const { data: pendingRequests = [] } = useStockChangeRequests('pending');
   const pendingCount = pendingRequests.length;
 
-  // Display data based on search
-  const displayProducts = hasActiveSearch ? filteredData.products : products;
-  const displayOrders = hasActiveSearch ? filteredData.orders : filteredOrders;
-  const displayClientProfitability = hasActiveSearch ? filteredData.clientProfitability : clientProfitability;
-
   return (
     <div className="min-h-screen bg-background">
       <Header 
         activeTab={mainTab}
         onTabChange={setMainTab}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         pendingCount={pendingCount}
       />
       
       <main className="container py-6 space-y-6">
-        {/* Search Results Indicator */}
-        {hasActiveSearch && (
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Showing results for "{searchQuery}" — {displayProducts.length} products, {displayClientProfitability.length} clients, {displayOrders.length} orders
-            </AlertDescription>
-          </Alert>
-        )}
-
         {/* Date Range Filter */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Dashboard Overview</h2>
@@ -196,7 +167,7 @@ const Index = () => {
           />
           <KPICard
             title="Active Clients"
-            value={displayClientProfitability.length.toString()}
+            value={clientProfitability.length.toString()}
             subtitle={`${clients.length} total`}
             icon={Users}
           />
@@ -206,7 +177,7 @@ const Index = () => {
         {mainTab === "financials" && (
           <div className="space-y-6">
             {/* Revenue Chart */}
-            <RevenueChart orders={displayOrders} products={displayProducts} dateRange={dateRange} />
+            <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
             
             {/* Financial Sub-tabs */}
             <Tabs defaultValue="analysis" className="space-y-4">
@@ -219,17 +190,17 @@ const Index = () => {
 
               <TabsContent value="analysis">
                 <FinancialAnalysis 
-                  clients={displayClientProfitability}
-                  products={displayProducts}
+                  clients={clientProfitability}
+                  products={products}
                   orders={orders}
                 />
               </TabsContent>
 
               <TabsContent value="orders">
                 <OrdersManagement
-                  orders={displayOrders}
+                  orders={filteredOrders}
                   clients={clients}
-                  products={displayProducts}
+                  products={products}
                   isLoading={ordersLoading}
                 />
               </TabsContent>
@@ -244,7 +215,7 @@ const Index = () => {
                   </CardHeader>
                   <CardContent>
                     <ClientProfitabilityTable 
-                      clients={displayClientProfitability} 
+                      clients={clientProfitability} 
                       isLoading={isLoading} 
                     />
                   </CardContent>
@@ -253,8 +224,8 @@ const Index = () => {
 
               <TabsContent value="recommendations">
                 <RecommendationsPanel 
-                  clients={displayClientProfitability} 
-                  products={displayProducts} 
+                  clients={clientProfitability} 
+                  products={products} 
                 />
               </TabsContent>
             </Tabs>
@@ -283,7 +254,7 @@ const Index = () => {
 
               <TabsContent value="inventory">
                 <InventoryManagement
-                  products={displayProducts}
+                  products={products}
                   suppliers={suppliers}
                   supplierProducts={supplierProducts}
                   arrivals={arrivals}
@@ -309,7 +280,7 @@ const Index = () => {
                       </AlertDescription>
                     </Alert>
                     <InventoryTable 
-                      products={displayProducts} 
+                      products={products} 
                       isLoading={productsLoading} 
                     />
                   </CardContent>
@@ -317,7 +288,7 @@ const Index = () => {
               </TabsContent>
 
               <TabsContent value="approvals">
-                <PendingApprovalsPanel products={displayProducts} />
+                <PendingApprovalsPanel products={products} />
               </TabsContent>
             </Tabs>
           </div>

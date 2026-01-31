@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TableSearch } from "./TableSearch";
 import { Client, MatchaProduct, ClientOrder } from "@/types/database";
 import { useAddOrder, useUpdateOrder, useDeleteOrder } from "@/hooks/useOrderMutations";
 import { Plus, Pencil, Trash2, FileSpreadsheet, Info } from "lucide-react";
@@ -43,6 +44,7 @@ interface OrdersManagementProps {
 export function OrdersManagement({ orders, clients, products, isLoading }: OrdersManagementProps) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ClientOrder | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const addOrder = useAddOrder();
   const updateOrder = useUpdateOrder();
@@ -57,6 +59,23 @@ export function OrdersManagement({ orders, clients, products, isLoading }: Order
     order_date: format(new Date(), "yyyy-MM-dd"),
     status: "delivered" as ClientOrder["status"],
   });
+
+  // Filter orders based on search
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    
+    const query = searchQuery.toLowerCase();
+    return orders.filter((order) => {
+      const client = clients.find(c => c.id === order.client_id);
+      const product = products.find(p => p.id === order.product_id);
+      return (
+        client?.name.toLowerCase().includes(query) ||
+        product?.name.toLowerCase().includes(query) ||
+        order.status.toLowerCase().includes(query) ||
+        order.order_date.includes(query)
+      );
+    });
+  }, [orders, clients, products, searchQuery]);
 
   const resetForm = () => {
     setFormData({
@@ -284,23 +303,30 @@ export function OrdersManagement({ orders, clients, products, isLoading }: Order
               Manage order records for profitability calculations
             </CardDescription>
           </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Test Order
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Test Order</DialogTitle>
-                <DialogDescription>
-                  Add a test order to validate dashboard calculations
-                </DialogDescription>
-              </DialogHeader>
-              <OrderForm />
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-3">
+            <TableSearch 
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search orders..."
+            />
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Test Order
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Test Order</DialogTitle>
+                  <DialogDescription>
+                    Add a test order to validate dashboard calculations
+                  </DialogDescription>
+                </DialogHeader>
+                <OrderForm />
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -319,7 +345,7 @@ export function OrdersManagement({ orders, clients, products, isLoading }: Order
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.slice(0, 20).map((order) => {
+              {filteredOrders.slice(0, 20).map((order) => {
                 const cogs = Number(order.quantity_kg) * getProductCost(order.product_id);
                 const profit = Number(order.total_revenue) - cogs;
                 
@@ -370,9 +396,14 @@ export function OrdersManagement({ orders, clients, products, isLoading }: Order
               })}
             </TableBody>
           </Table>
-          {orders.length > 20 && (
+          {filteredOrders.length > 20 && (
             <p className="text-sm text-muted-foreground text-center mt-4">
-              Showing 20 of {orders.length} orders
+              Showing 20 of {filteredOrders.length} orders
+            </p>
+          )}
+          {searchQuery && filteredOrders.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No orders match "{searchQuery}"
             </p>
           )}
         </CardContent>

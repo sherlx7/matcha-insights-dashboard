@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { TableSearch } from "./TableSearch";
 import { MatchaProduct, InventoryChange } from "@/types/database";
 import { useInventoryChanges, useRevertChange } from "@/hooks/useMatchaData";
 import { useStockChangeRequests } from "@/hooks/useStockChangeRequests";
@@ -46,10 +47,23 @@ const gradeColors: Record<string, string> = {
 export function InventoryTable({ products, isLoading }: InventoryTableProps) {
   const [historyProduct, setHistoryProduct] = useState<MatchaProduct | null>(null);
   const [editingProduct, setEditingProduct] = useState<MatchaProduct | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { data: changes } = useInventoryChanges(historyProduct?.id);
   const revertChange = useRevertChange();
   const { data: pendingRequests = [] } = useStockChangeRequests('pending');
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    
+    const query = searchQuery.toLowerCase();
+    return products.filter((product) =>
+      product.name.toLowerCase().includes(query) ||
+      product.grade.toLowerCase().includes(query) ||
+      product.origin.toLowerCase().includes(query) ||
+      product.status.toLowerCase().includes(query)
+    );
+  }, [products, searchQuery]);
 
   const handleRevert = (change: InventoryChange) => {
     if (historyProduct) {
@@ -72,6 +86,13 @@ export function InventoryTable({ products, isLoading }: InventoryTableProps) {
 
   return (
     <>
+      <div className="flex justify-end mb-4">
+        <TableSearch 
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search products..."
+        />
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -86,7 +107,7 @@ export function InventoryTable({ products, isLoading }: InventoryTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {products.map((product) => {
+          {filteredProducts.map((product) => {
             const isPending = hasPendingRequest(product.id);
             
             return (
@@ -174,6 +195,11 @@ export function InventoryTable({ products, isLoading }: InventoryTableProps) {
           })}
         </TableBody>
       </Table>
+      {searchQuery && filteredProducts.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No products match "{searchQuery}"
+        </p>
+      )}
 
       {/* Stock Change Request Dialog */}
       {editingProduct && (
