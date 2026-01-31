@@ -4,6 +4,8 @@ export interface MatchaProduct {
   grade: 'ceremonial' | 'premium' | 'culinary';
   origin: string;
   cost_per_kg: number;
+  cost_per_kg_jpy: number | null;
+  selling_price_per_kg: number | null;
   quality_score: number;
   stock_kg: number;
   status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'discontinued';
@@ -19,6 +21,8 @@ export interface Client {
   contact_email: string | null;
   contact_phone: string | null;
   address: string | null;
+  discount_percent: number;
+  delivery_day_of_month: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +35,7 @@ export interface ClientOrder {
   unit_price: number;
   total_revenue: number;
   order_date: string;
+  scheduled_delivery_date: string | null;
   status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
   created_at: string;
 }
@@ -54,6 +59,7 @@ export interface Supplier {
   contact_phone: string | null;
   country: string | null;
   lead_time_days: number;
+  exchange_rate_jpy_usd: number;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -78,6 +84,8 @@ export interface WarehouseArrival {
   supplier_id: string;
   quantity_kg: number;
   unit_cost: number;
+  cost_per_kg_jpy: number | null;
+  exchange_rate_used: number | null;
   arrival_date: string;
   batch_number: string | null;
   expiry_date: string | null;
@@ -174,4 +182,58 @@ export interface ReorderAlert {
   supplierPrice: number | null;
   leadTimeDays: number | null;
   urgency: 'low' | 'medium' | 'high' | 'critical';
+}
+
+// Cost calculation constants
+export const SHIPPING_COST_PER_KG = 15; // $15/kg shipping
+export const IMPORT_TAX_RATE = 0.09; // 9% import tax
+
+// Cost calculation utilities
+export interface ProductCostBreakdown {
+  costJpy: number;
+  exchangeRate: number;
+  costUsd: number;
+  shippingCost: number;
+  subtotalBeforeTax: number;
+  importTax: number;
+  totalCostPerKg: number;
+}
+
+export function calculateProductCost(
+  costJpy: number,
+  exchangeRate: number
+): ProductCostBreakdown {
+  const costUsd = costJpy * exchangeRate;
+  const shippingCost = SHIPPING_COST_PER_KG;
+  const subtotalBeforeTax = costUsd + shippingCost;
+  const importTax = subtotalBeforeTax * IMPORT_TAX_RATE;
+  const totalCostPerKg = subtotalBeforeTax + importTax;
+
+  return {
+    costJpy,
+    exchangeRate,
+    costUsd,
+    shippingCost,
+    subtotalBeforeTax,
+    importTax,
+    totalCostPerKg,
+  };
+}
+
+export interface ClientPricingDetails {
+  client: Client;
+  product: MatchaProduct;
+  costBreakdown: ProductCostBreakdown;
+  sellingPricePerKg: number;
+  discountPercent: number;
+  effectiveSellingPrice: number;
+  profitPerKg: number;
+  monthlyQuantityKg: number;
+  monthlyProfit: number;
+  existingStock: number;
+  lastOrderDate: string | null;
+  lastArrivalDate: string | null;
+  daysToNextOrder: number | null;
+  kgNeededToFulfill: number;
+  nextDeliveryDate: string | null;
 }

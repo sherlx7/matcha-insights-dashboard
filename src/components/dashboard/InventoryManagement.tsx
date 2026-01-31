@@ -465,7 +465,9 @@ function ArrivalsTable({
             <TableHead>Product</TableHead>
             <TableHead>Supplier</TableHead>
             <TableHead className="text-right">Quantity</TableHead>
-            <TableHead className="text-right">Unit Cost</TableHead>
+            <TableHead className="text-right">Cost (¥/kg)</TableHead>
+            <TableHead className="text-right">Exchange Rate</TableHead>
+            <TableHead className="text-right">Cost ($/kg)</TableHead>
             <TableHead>Batch #</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
@@ -474,6 +476,7 @@ function ArrivalsTable({
           {filteredArrivals.map((arrival) => {
             const product = productMap.get(arrival.product_id);
             const supplier = supplierMap.get(arrival.supplier_id);
+            const exchangeRate = arrival.exchange_rate_used ?? (supplier?.exchange_rate_jpy_usd ?? 0.0067);
             
             return (
               <TableRow key={arrival.id}>
@@ -489,7 +492,13 @@ function ArrivalsTable({
                 <TableCell className="text-right font-mono">
                   {Number(arrival.quantity_kg).toFixed(1)} kg
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right font-mono">
+                  {arrival.cost_per_kg_jpy ? `¥${Number(arrival.cost_per_kg_jpy).toLocaleString()}` : "—"}
+                </TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {exchangeRate.toFixed(4)}
+                </TableCell>
+                <TableCell className="text-right font-mono">
                   ${Number(arrival.unit_cost).toFixed(2)}
                 </TableCell>
                 <TableCell className="font-mono text-xs">
@@ -624,6 +633,8 @@ function SupplierPricingTable({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
+  const [editingExchangeRate, setEditingExchangeRate] = useState<string | null>(null);
+  const [exchangeRateValue, setExchangeRateValue] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
   const updatePricing = useUpdateSupplierProduct();
 
@@ -675,9 +686,12 @@ function SupplierPricingTable({
           <TableRow>
             <TableHead>Supplier</TableHead>
             <TableHead>Product</TableHead>
-            <TableHead className="text-right">Cost/kg</TableHead>
+            <TableHead className="text-right">Cost (¥/kg)</TableHead>
+            <TableHead className="text-right">Exchange Rate</TableHead>
+            <TableHead className="text-right">Cost ($/kg)</TableHead>
             <TableHead className="text-right">Min Order</TableHead>
             <TableHead>Primary</TableHead>
+            <TableHead>Lead Time</TableHead>
             <TableHead>Last Updated</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -686,11 +700,20 @@ function SupplierPricingTable({
           {filteredSupplierProducts.map((sp) => {
             const supplier = supplierMap.get(sp.supplier_id);
             const product = productMap.get(sp.product_id);
+            const exchangeRate = supplier?.exchange_rate_jpy_usd ?? 0.0067;
+            const costJpy = product?.cost_per_kg_jpy ?? 0;
+            const costUsd = costJpy * exchangeRate;
             
             return (
               <TableRow key={sp.id}>
                 <TableCell className="font-medium">{supplier?.name || "Unknown"}</TableCell>
                 <TableCell>{product?.name || "Unknown"}</TableCell>
+                <TableCell className="text-right font-mono">
+                  ¥{costJpy.toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {exchangeRate.toFixed(4)}
+                </TableCell>
                 <TableCell className="text-right">
                   {editingId === sp.id ? (
                     <Input
@@ -713,6 +736,9 @@ function SupplierPricingTable({
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {supplier?.lead_time_days ?? "—"} days
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {format(new Date(sp.last_price_update), "MMM d, yyyy")}
@@ -792,6 +818,8 @@ function NewArrivalDialog({
       supplier_id: supplierId,
       quantity_kg: parseFloat(quantity),
       unit_cost: unitCost,
+      cost_per_kg_jpy: null,
+      exchange_rate_used: null,
       arrival_date: new Date().toISOString().split('T')[0],
       batch_number: batchNumber || null,
       expiry_date: null,
