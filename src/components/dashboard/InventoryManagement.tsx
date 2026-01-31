@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TableSearch } from "./TableSearch";
 import { 
   MatchaProduct, 
   Supplier, 
@@ -235,6 +236,7 @@ export function InventoryManagement({
             <CardContent>
               <AllocationsTable 
                 inventoryStatus={inventoryStatus}
+                clients={clients}
               />
             </CardContent>
           </Card>
@@ -319,60 +321,87 @@ function ReorderAlertsTable({ alerts }: { alerts: ReorderAlert[] }) {
 }
 
 function StockLevelsTable({ inventoryStatus }: { inventoryStatus: ProductInventoryStatus[] }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return inventoryStatus;
+    
+    const query = searchQuery.toLowerCase();
+    return inventoryStatus.filter((item) =>
+      item.product.name.toLowerCase().includes(query) ||
+      item.product.grade.toLowerCase().includes(query) ||
+      item.primarySupplier?.name.toLowerCase().includes(query)
+    );
+  }, [inventoryStatus, searchQuery]);
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Product</TableHead>
-          <TableHead>Grade</TableHead>
-          <TableHead className="text-right">Total Stock</TableHead>
-          <TableHead className="text-right">Allocated</TableHead>
-          <TableHead className="text-right">Available</TableHead>
-          <TableHead className="text-right">Reorder Point</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Primary Supplier</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {inventoryStatus.map((item) => (
-          <TableRow key={item.product.id}>
-            <TableCell className="font-medium">{item.product.name}</TableCell>
-            <TableCell>
-              <Badge variant="outline" className="capitalize">
-                {item.product.grade}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-right font-mono">
-              {item.totalStock.toFixed(1)} kg
-            </TableCell>
-            <TableCell className="text-right font-mono text-muted-foreground">
-              {item.allocatedStock.toFixed(1)} kg
-            </TableCell>
-            <TableCell className="text-right font-mono font-medium text-primary">
-              {item.unallocatedStock.toFixed(1)} kg
-            </TableCell>
-            <TableCell className="text-right font-mono text-muted-foreground">
-              {Number(item.product.reorder_point_kg).toFixed(1)} kg
-            </TableCell>
-            <TableCell>
-              {item.needsReorder ? (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Reorder
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                  OK
-                </Badge>
-              )}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {item.primarySupplier?.name || "—"}
-            </TableCell>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TableSearch 
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search stock..."
+        />
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Product</TableHead>
+            <TableHead>Grade</TableHead>
+            <TableHead className="text-right">Total Stock</TableHead>
+            <TableHead className="text-right">Allocated</TableHead>
+            <TableHead className="text-right">Available</TableHead>
+            <TableHead className="text-right">Reorder Point</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Primary Supplier</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {filteredItems.map((item) => (
+            <TableRow key={item.product.id}>
+              <TableCell className="font-medium">{item.product.name}</TableCell>
+              <TableCell>
+                <Badge variant="outline" className="capitalize">
+                  {item.product.grade}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {item.totalStock.toFixed(1)} kg
+              </TableCell>
+              <TableCell className="text-right font-mono text-muted-foreground">
+                {item.allocatedStock.toFixed(1)} kg
+              </TableCell>
+              <TableCell className="text-right font-mono font-medium text-primary">
+                {item.unallocatedStock.toFixed(1)} kg
+              </TableCell>
+              <TableCell className="text-right font-mono text-muted-foreground">
+                {Number(item.product.reorder_point_kg).toFixed(1)} kg
+              </TableCell>
+              <TableCell>
+                {item.needsReorder ? (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Reorder
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                    OK
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {item.primarySupplier?.name || "—"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {searchQuery && filteredItems.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No items match "{searchQuery}"
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -385,8 +414,25 @@ function ArrivalsTable({
   products: MatchaProduct[];
   suppliers: Supplier[];
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
   const productMap = new Map(products.map(p => [p.id, p]));
   const supplierMap = new Map(suppliers.map(s => [s.id, s]));
+
+  const filteredArrivals = useMemo(() => {
+    if (!searchQuery.trim()) return arrivals;
+    
+    const query = searchQuery.toLowerCase();
+    return arrivals.filter((arrival) => {
+      const product = productMap.get(arrival.product_id);
+      const supplier = supplierMap.get(arrival.supplier_id);
+      return (
+        product?.name.toLowerCase().includes(query) ||
+        supplier?.name.toLowerCase().includes(query) ||
+        arrival.batch_number?.toLowerCase().includes(query) ||
+        arrival.status.toLowerCase().includes(query)
+      );
+    });
+  }, [arrivals, searchQuery, productMap, supplierMap]);
 
   const statusColors = {
     pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
@@ -404,58 +450,90 @@ function ArrivalsTable({
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Product</TableHead>
-          <TableHead>Supplier</TableHead>
-          <TableHead className="text-right">Quantity</TableHead>
-          <TableHead className="text-right">Unit Cost</TableHead>
-          <TableHead>Batch #</TableHead>
-          <TableHead>Status</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {arrivals.map((arrival) => {
-          const product = productMap.get(arrival.product_id);
-          const supplier = supplierMap.get(arrival.supplier_id);
-          
-          return (
-            <TableRow key={arrival.id}>
-              <TableCell>
-                {format(new Date(arrival.arrival_date), "MMM d, yyyy")}
-              </TableCell>
-              <TableCell className="font-medium">
-                {product?.name || "Unknown"}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {supplier?.name || "Unknown"}
-              </TableCell>
-              <TableCell className="text-right font-mono">
-                {Number(arrival.quantity_kg).toFixed(1)} kg
-              </TableCell>
-              <TableCell className="text-right">
-                ${Number(arrival.unit_cost).toFixed(2)}
-              </TableCell>
-              <TableCell className="font-mono text-xs">
-                {arrival.batch_number || "—"}
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className={cn("capitalize", statusColors[arrival.status])}>
-                  {arrival.status}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TableSearch 
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search arrivals..."
+        />
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>Supplier</TableHead>
+            <TableHead className="text-right">Quantity</TableHead>
+            <TableHead className="text-right">Unit Cost</TableHead>
+            <TableHead>Batch #</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredArrivals.map((arrival) => {
+            const product = productMap.get(arrival.product_id);
+            const supplier = supplierMap.get(arrival.supplier_id);
+            
+            return (
+              <TableRow key={arrival.id}>
+                <TableCell>
+                  {format(new Date(arrival.arrival_date), "MMM d, yyyy")}
+                </TableCell>
+                <TableCell className="font-medium">
+                  {product?.name || "Unknown"}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {supplier?.name || "Unknown"}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {Number(arrival.quantity_kg).toFixed(1)} kg
+                </TableCell>
+                <TableCell className="text-right">
+                  ${Number(arrival.unit_cost).toFixed(2)}
+                </TableCell>
+                <TableCell className="font-mono text-xs">
+                  {arrival.batch_number || "—"}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={cn("capitalize", statusColors[arrival.status])}>
+                    {arrival.status}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      {searchQuery && filteredArrivals.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No arrivals match "{searchQuery}"
+        </p>
+      )}
+    </div>
   );
 }
 
-function AllocationsTable({ inventoryStatus }: { inventoryStatus: ProductInventoryStatus[] }) {
+function AllocationsTable({ 
+  inventoryStatus,
+  clients 
+}: { 
+  inventoryStatus: ProductInventoryStatus[];
+  clients: Client[];
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
   const productsWithAllocations = inventoryStatus.filter(item => item.allocations.length > 0);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return productsWithAllocations;
+    
+    const query = searchQuery.toLowerCase();
+    return productsWithAllocations.filter((item) =>
+      item.product.name.toLowerCase().includes(query) ||
+      item.product.grade.toLowerCase().includes(query) ||
+      item.allocations.some(a => a.client.name.toLowerCase().includes(query))
+    );
+  }, [productsWithAllocations, searchQuery]);
 
   if (productsWithAllocations.length === 0) {
     return (
@@ -466,57 +544,71 @@ function AllocationsTable({ inventoryStatus }: { inventoryStatus: ProductInvento
   }
 
   return (
-    <div className="space-y-6">
-      {productsWithAllocations.map((item) => (
-        <div key={item.product.id} className="border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{item.product.name}</span>
-              <Badge variant="outline" className="capitalize">{item.product.grade}</Badge>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TableSearch 
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search allocations..."
+        />
+      </div>
+      <div className="space-y-6">
+        {filteredProducts.map((item) => (
+          <div key={item.product.id} className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{item.product.name}</span>
+                <Badge variant="outline" className="capitalize">{item.product.grade}</Badge>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-muted-foreground">
+                  Total: <span className="font-mono">{item.totalStock.toFixed(1)} kg</span>
+                </span>
+                <span className="text-muted-foreground">
+                  Allocated: <span className="font-mono">{item.allocatedStock.toFixed(1)} kg</span>
+                </span>
+                <span className="text-primary font-medium">
+                  Available: <span className="font-mono">{item.unallocatedStock.toFixed(1)} kg</span>
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-muted-foreground">
-                Total: <span className="font-mono">{item.totalStock.toFixed(1)} kg</span>
-              </span>
-              <span className="text-muted-foreground">
-                Allocated: <span className="font-mono">{item.allocatedStock.toFixed(1)} kg</span>
-              </span>
-              <span className="text-primary font-medium">
-                Available: <span className="font-mono">{item.unallocatedStock.toFixed(1)} kg</span>
-              </span>
-            </div>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead className="text-right">Allocated</TableHead>
-                <TableHead>Reserved Until</TableHead>
-                <TableHead>Notes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {item.allocations.map((alloc) => (
-                <TableRow key={alloc.id}>
-                  <TableCell className="font-medium">{alloc.client.name}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {Number(alloc.allocated_kg).toFixed(1)} kg
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {alloc.reserved_until 
-                      ? format(new Date(alloc.reserved_until), "MMM d, yyyy")
-                      : "—"
-                    }
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {alloc.notes || "—"}
-                  </TableCell>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead className="text-right">Allocated</TableHead>
+                  <TableHead>Reserved Until</TableHead>
+                  <TableHead>Notes</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ))}
+              </TableHeader>
+              <TableBody>
+                {item.allocations.map((alloc) => (
+                  <TableRow key={alloc.id}>
+                    <TableCell className="font-medium">{alloc.client.name}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {Number(alloc.allocated_kg).toFixed(1)} kg
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {alloc.reserved_until 
+                        ? format(new Date(alloc.reserved_until), "MMM d, yyyy")
+                        : "—"
+                      }
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {alloc.notes || "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ))}
+      </div>
+      {searchQuery && filteredProducts.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No allocations match "{searchQuery}"
+        </p>
+      )}
     </div>
   );
 }
@@ -532,10 +624,25 @@ function SupplierPricingTable({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const updatePricing = useUpdateSupplierProduct();
 
   const productMap = new Map(products.map(p => [p.id, p]));
   const supplierMap = new Map(suppliers.map(s => [s.id, s]));
+
+  const filteredSupplierProducts = useMemo(() => {
+    if (!searchQuery.trim()) return supplierProducts;
+    
+    const query = searchQuery.toLowerCase();
+    return supplierProducts.filter((sp) => {
+      const product = productMap.get(sp.product_id);
+      const supplier = supplierMap.get(sp.supplier_id);
+      return (
+        product?.name.toLowerCase().includes(query) ||
+        supplier?.name.toLowerCase().includes(query)
+      );
+    });
+  }, [supplierProducts, searchQuery, productMap, supplierMap]);
 
   const startEdit = (sp: SupplierProduct) => {
     setEditingId(sp.id);
@@ -555,74 +662,88 @@ function SupplierPricingTable({
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Supplier</TableHead>
-          <TableHead>Product</TableHead>
-          <TableHead className="text-right">Cost/kg</TableHead>
-          <TableHead className="text-right">Min Order</TableHead>
-          <TableHead>Primary</TableHead>
-          <TableHead>Last Updated</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {supplierProducts.map((sp) => {
-          const supplier = supplierMap.get(sp.supplier_id);
-          const product = productMap.get(sp.product_id);
-          
-          return (
-            <TableRow key={sp.id}>
-              <TableCell className="font-medium">{supplier?.name || "Unknown"}</TableCell>
-              <TableCell>{product?.name || "Unknown"}</TableCell>
-              <TableCell className="text-right">
-                {editingId === sp.id ? (
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={editValue}
-                    onChange={(e) => setEditValue(parseFloat(e.target.value))}
-                    className="w-24 h-8"
-                  />
-                ) : (
-                  <span className="font-mono">${Number(sp.unit_cost).toFixed(2)}</span>
-                )}
-              </TableCell>
-              <TableCell className="text-right font-mono text-muted-foreground">
-                {Number(sp.min_order_kg).toFixed(1)} kg
-              </TableCell>
-              <TableCell>
-                {sp.is_primary_supplier ? (
-                  <Badge className="bg-primary/10 text-primary border-primary/20">Primary</Badge>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
-                {format(new Date(sp.last_price_update), "MMM d, yyyy")}
-              </TableCell>
-              <TableCell className="text-right">
-                {editingId === sp.id ? (
-                  <div className="flex items-center justify-end gap-1">
-                    <Button size="icon" variant="ghost" onClick={saveEdit} className="h-8 w-8">
-                      <Check className="h-4 w-4 text-primary" />
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TableSearch 
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search suppliers..."
+        />
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Supplier</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead className="text-right">Cost/kg</TableHead>
+            <TableHead className="text-right">Min Order</TableHead>
+            <TableHead>Primary</TableHead>
+            <TableHead>Last Updated</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredSupplierProducts.map((sp) => {
+            const supplier = supplierMap.get(sp.supplier_id);
+            const product = productMap.get(sp.product_id);
+            
+            return (
+              <TableRow key={sp.id}>
+                <TableCell className="font-medium">{supplier?.name || "Unknown"}</TableCell>
+                <TableCell>{product?.name || "Unknown"}</TableCell>
+                <TableCell className="text-right">
+                  {editingId === sp.id ? (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editValue}
+                      onChange={(e) => setEditValue(parseFloat(e.target.value))}
+                      className="w-24 h-8"
+                    />
+                  ) : (
+                    <span className="font-mono">${Number(sp.unit_cost).toFixed(2)}</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {Number(sp.min_order_kg).toFixed(1)} kg
+                </TableCell>
+                <TableCell>
+                  {sp.is_primary_supplier ? (
+                    <Badge className="bg-primary/10 text-primary border-primary/20">Primary</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {format(new Date(sp.last_price_update), "MMM d, yyyy")}
+                </TableCell>
+                <TableCell className="text-right">
+                  {editingId === sp.id ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="icon" variant="ghost" onClick={saveEdit} className="h-8 w-8">
+                        <Check className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8">
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="icon" variant="ghost" onClick={() => startEdit(sp)} className="h-8 w-8">
+                      <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8">
-                      <X className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="icon" variant="ghost" onClick={() => startEdit(sp)} className="h-8 w-8">
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      {searchQuery && filteredSupplierProducts.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No suppliers match "{searchQuery}"
+        </p>
+      )}
+    </div>
   );
 }
 
