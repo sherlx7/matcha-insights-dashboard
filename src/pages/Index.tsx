@@ -4,13 +4,12 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { InventoryTable } from "@/components/dashboard/InventoryTable";
 import { ClientProfitabilityTable } from "@/components/dashboard/ClientProfitabilityTable";
 import { ClientPricingTable } from "@/components/dashboard/ClientPricingTable";
-import { RecommendationsPanel } from "@/components/dashboard/RecommendationsPanel";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { InventoryManagement } from "@/components/dashboard/InventoryManagement";
 import { OrdersManagement } from "@/components/dashboard/OrdersManagement";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { PendingApprovalsPanel } from "@/components/dashboard/PendingApprovalsPanel";
-import { FinancialAnalysis } from "@/components/dashboard/FinancialAnalysis";
+import { AIInsightsTab } from "@/components/dashboard/AIInsightsTab";
 import { ProfitabilitySandbox } from "@/components/dashboard/sandbox/ProfitabilitySandbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,7 +35,8 @@ import {
   AlertTriangle,
   ShieldCheck,
   Info,
-  Calculator
+  Calculator,
+  Brain
 } from "lucide-react";
 
 const Index = () => {
@@ -184,15 +184,23 @@ const Index = () => {
             
             {/* Financial Sub-tabs */}
             <Tabs defaultValue="pricing" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="pricing" className="flex items-center gap-2">
+              <TabsList className="bg-muted/50 p-1">
+                <TabsTrigger value="pricing" className="flex items-center gap-2 data-[state=active]:bg-background">
                   <Calculator className="h-4 w-4" />
-                  Client Pricing & Costs
+                  <span className="hidden sm:inline">Pricing & Costs</span>
+                  <span className="sm:hidden">Pricing</span>
                 </TabsTrigger>
-                <TabsTrigger value="analysis">AI Analysis & Forecast</TabsTrigger>
-                <TabsTrigger value="orders">Sales Orders</TabsTrigger>
-                <TabsTrigger value="clients">Client Profitability</TabsTrigger>
-                <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
+                <TabsTrigger value="orders" className="data-[state=active]:bg-background">
+                  Sales Orders
+                </TabsTrigger>
+                <TabsTrigger value="clients" className="data-[state=active]:bg-background">
+                  Profitability
+                </TabsTrigger>
+                <TabsTrigger value="ai-insights" className="flex items-center gap-2 data-[state=active]:bg-background">
+                  <Brain className="h-4 w-4" />
+                  <span className="hidden sm:inline">AI Insights</span>
+                  <span className="sm:hidden">AI</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="pricing">
@@ -205,14 +213,6 @@ const Index = () => {
                   arrivals={arrivals}
                   allocations={allocations}
                   isLoading={isLoading || isInventoryLoading}
-                />
-              </TabsContent>
-
-              <TabsContent value="analysis">
-                <FinancialAnalysis 
-                  clients={clientProfitability}
-                  products={products}
-                  orders={orders}
                 />
               </TabsContent>
 
@@ -242,10 +242,11 @@ const Index = () => {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="recommendations">
-                <RecommendationsPanel 
-                  clients={clientProfitability} 
-                  products={products} 
+              <TabsContent value="ai-insights">
+                <AIInsightsTab 
+                  clients={clientProfitability}
+                  products={products}
+                  orders={orders}
                 />
               </TabsContent>
             </Tabs>
