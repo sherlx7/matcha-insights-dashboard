@@ -48,9 +48,10 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    // Get OpenAI API key from environment
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
     }
 
     const { clients, products } = await req.json() as { 
@@ -60,20 +61,20 @@ serve(async (req) => {
 
     // Build context for the AI
     const productList = products.map(p => 
-      `- ${p.name} (${p.grade}): $${p.cost_per_kg}/kg, Quality: ${p.quality_score}/100, Stock: ${p.stock_kg}kg, Status: ${p.status}`
+      `- ${p.name} (${p.grade}): SGD ${p.cost_per_kg}/kg, Quality: ${p.quality_score}/100, Stock: ${p.stock_kg}kg, Status: ${p.status}`
     ).join("\n");
 
     const clientAnalysis = clients.map(c => {
       const orderDetails = c.orders.map(o => 
-        `  - ${o.product.name}: ${o.quantity_kg}kg @ $${o.unit_price}/kg`
+        `  - ${o.product.name}: ${o.quantity_kg}kg @ SGD ${o.unit_price}/kg`
       ).join("\n");
       return `Client: ${c.client.name}
-  Revenue: $${c.totalRevenue.toFixed(2)}, COGS: $${c.totalCOGS.toFixed(2)}, Profit: $${c.profit.toFixed(2)}, Margin: ${c.profitMargin.toFixed(1)}%
+  Revenue: SGD ${c.totalRevenue.toFixed(2)}, COGS: SGD ${c.totalCOGS.toFixed(2)}, Profit: SGD ${c.profit.toFixed(2)}, Margin: ${c.profitMargin.toFixed(1)}%
   Orders:
 ${orderDetails}`;
     }).join("\n\n");
 
-    const systemPrompt = `You are a B2B matcha tea business analyst for Matsu Matcha. Your role is to analyze client purchasing patterns and recommend matcha product swaps that improve profitability while maintaining or improving quality.
+    const systemPrompt = `You are a B2B matcha tea business analyst for Matsu Matcha, a premium matcha supplier based in Singapore sourcing from Uji, Kyoto. Your role is to analyze client purchasing patterns and recommend matcha product swaps that improve profitability while maintaining or improving quality.
 
 Rules:
 1. Only recommend swaps where the recommended product has EQUAL or BETTER quality score
@@ -88,99 +89,85 @@ ${productList}
 Client Purchase Analysis:
 ${clientAnalysis}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const userPrompt = `Analyze the client data and provide up to 3 specific product swap recommendations that would improve profitability while maintaining quality.
+
+Return a JSON object with this exact structure:
+{
+  "recommendations": [
+    {
+      "clientName": "Client Name",
+      "currentProductName": "Current Product Name",
+      "recommendedProductName": "Recommended Product Name",
+      "potentialSavings": 123.45,
+      "reason": "Explanation for the recommendation"
+    }
+  ]
+}
+
+Only include recommendations where there's a clear benefit. If no beneficial swaps exist, return an empty recommendations array.`;
+
+    // Call OpenAI API
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { 
-            role: "user", 
-            content: "Analyze the client data and provide up to 3 specific product swap recommendations that would improve profitability while maintaining quality. For each recommendation, specify the client, current product, recommended product, estimated savings per order, and a brief reason."
-          }
+          { role: "user", content: userPrompt }
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "provide_recommendations",
-              description: "Provide matcha product swap recommendations for clients",
-              parameters: {
-                type: "object",
-                properties: {
-                  recommendations: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        clientId: { type: "string", description: "ID of the client" },
-                        clientName: { type: "string", description: "Name of the client" },
-                        currentProductId: { type: "string", description: "ID of current product" },
-                        currentProductName: { type: "string", description: "Name of current product" },
-                        recommendedProductId: { type: "string", description: "ID of recommended product" },
-                        recommendedProductName: { type: "string", description: "Name of recommended product" },
-                        potentialSavings: { type: "number", description: "Estimated savings per order in dollars" },
-                        reason: { type: "string", description: "Brief explanation for the recommendation" }
-                      },
-                      required: ["clientName", "currentProductName", "recommendedProductName", "potentialSavings", "reason"]
-                    }
-                  }
-                },
-                required: ["recommendations"]
-              }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "provide_recommendations" } }
+        response_format: { type: "json_object" },
+        temperature: 0.5,
+        max_tokens: 1000,
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenAI API error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required. Please add credits to continue." }), {
-          status: 402,
+      if (response.status === 401) {
+        return new Response(JSON.stringify({ error: "Invalid API key. Please check configuration." }), {
+          status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
       throw new Error("Failed to get AI recommendations");
     }
 
     const aiResponse = await response.json();
-    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+    const content = aiResponse.choices?.[0]?.message?.content;
     
-    if (!toolCall?.function?.arguments) {
+    if (!content) {
       return new Response(JSON.stringify({ recommendations: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const parsed = JSON.parse(toolCall.function.arguments);
+    const parsed = JSON.parse(content);
     
     // Map the AI recommendations to our format with full product/client objects
     const recommendations = (parsed.recommendations || []).map((rec: any) => {
       const client = clients.find(c => 
-        c.client.name.toLowerCase().includes(rec.clientName.toLowerCase()) ||
-        rec.clientName.toLowerCase().includes(c.client.name.toLowerCase())
+        c.client.name.toLowerCase().includes(rec.clientName?.toLowerCase() || '') ||
+        (rec.clientName?.toLowerCase() || '').includes(c.client.name.toLowerCase())
       );
       const currentProduct = products.find(p => 
-        p.name.toLowerCase().includes(rec.currentProductName.toLowerCase()) ||
-        rec.currentProductName.toLowerCase().includes(p.name.toLowerCase())
+        p.name.toLowerCase().includes(rec.currentProductName?.toLowerCase() || '') ||
+        (rec.currentProductName?.toLowerCase() || '').includes(p.name.toLowerCase())
       );
       const recommendedProduct = products.find(p => 
-        p.name.toLowerCase().includes(rec.recommendedProductName.toLowerCase()) ||
-        rec.recommendedProductName.toLowerCase().includes(p.name.toLowerCase())
+        p.name.toLowerCase().includes(rec.recommendedProductName?.toLowerCase() || '') ||
+        (rec.recommendedProductName?.toLowerCase() || '').includes(p.name.toLowerCase())
       );
 
       if (!client || !currentProduct || !recommendedProduct) {
@@ -191,12 +178,16 @@ ${clientAnalysis}`;
         client: client.client,
         currentProduct,
         recommendedProduct,
-        potentialSavings: rec.potentialSavings,
-        reason: rec.reason,
+        potentialSavings: rec.potentialSavings || 0,
+        reason: rec.reason || 'AI-recommended swap for improved profitability',
       };
     }).filter(Boolean);
 
-    return new Response(JSON.stringify({ recommendations }), {
+    return new Response(JSON.stringify({ 
+      recommendations,
+      generatedBy: 'OpenAI GPT-4o-mini',
+      generatedAt: new Date().toISOString(),
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
