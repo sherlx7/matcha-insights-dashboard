@@ -86,6 +86,45 @@ export interface WarehouseArrival {
   created_at: string;
 }
 
+export type StockChangeReason = 
+  | 'reservation_made'
+  | 'reservation_cancelled'
+  | 'damage_to_stock'
+  | 'quality_issue'
+  | 'stock_correction'
+  | 'sample_given'
+  | 'internal_use'
+  | 'other';
+
+export type StockChangeType = 'increase' | 'decrease' | 'set';
+
+export interface StockChangeRequest {
+  id: string;
+  product_id: string;
+  requested_by: string;
+  change_type: StockChangeType;
+  quantity_kg: number;
+  new_stock_kg: number | null;
+  reason: StockChangeReason;
+  notes: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+}
+
+export const STOCK_CHANGE_REASON_LABELS: Record<StockChangeReason, string> = {
+  reservation_made: 'Reservation Made',
+  reservation_cancelled: 'Reservation Cancelled',
+  damage_to_stock: 'Damage to Stock',
+  quality_issue: 'Quality Issue',
+  stock_correction: 'Stock Correction',
+  sample_given: 'Sample Given',
+  internal_use: 'Internal Use',
+  other: 'Other',
+};
+
 export interface ClientAllocation {
   id: string;
   client_id: string;

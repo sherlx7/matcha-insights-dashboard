@@ -9,14 +9,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -26,10 +18,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { MatchaProduct, InventoryChange } from "@/types/database";
-import { useUpdateProduct, useInventoryChanges, useRevertChange } from "@/hooks/useMatchaData";
-import { Pencil, History, RotateCcw, Check, X } from "lucide-react";
+import { useInventoryChanges, useRevertChange } from "@/hooks/useMatchaData";
+import { useStockChangeRequests } from "@/hooks/useStockChangeRequests";
+import { Pencil, History, RotateCcw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { StockChangeRequestDialog } from "./StockChangeRequestDialog";
 
 interface InventoryTableProps {
   products: MatchaProduct[];
@@ -50,40 +44,22 @@ const gradeColors: Record<string, string> = {
 };
 
 export function InventoryTable({ products, isLoading }: InventoryTableProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<MatchaProduct>>({});
   const [historyProduct, setHistoryProduct] = useState<MatchaProduct | null>(null);
+  const [editingProduct, setEditingProduct] = useState<MatchaProduct | null>(null);
   
-  const updateProduct = useUpdateProduct();
   const { data: changes } = useInventoryChanges(historyProduct?.id);
   const revertChange = useRevertChange();
-
-  const startEditing = (product: MatchaProduct) => {
-    setEditingId(product.id);
-    setEditValues({
-      stock_kg: product.stock_kg,
-      status: product.status,
-      cost_per_kg: product.cost_per_kg,
-    });
-  };
-
-  const saveEdit = () => {
-    if (editingId) {
-      updateProduct.mutate({ id: editingId, updates: editValues });
-      setEditingId(null);
-      setEditValues({});
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValues({});
-  };
+  const { data: pendingRequests = [] } = useStockChangeRequests('pending');
 
   const handleRevert = (change: InventoryChange) => {
     if (historyProduct) {
       revertChange.mutate({ change, product: historyProduct });
     }
+  };
+
+  // Check if a product has a pending request
+  const hasPendingRequest = (productId: string) => {
+    return pendingRequests.some(r => r.product_id === productId);
   };
 
   if (isLoading) {
@@ -110,117 +86,103 @@ export function InventoryTable({ products, isLoading }: InventoryTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {products.map((product) => (
-            <TableRow key={product.id}>
-              <TableCell className="font-medium">{product.name}</TableCell>
-              <TableCell>
-                <Badge className={cn("capitalize", gradeColors[product.grade])}>
-                  {product.grade}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-muted-foreground">{product.origin}</TableCell>
-              <TableCell className="text-right">
-                {editingId === product.id ? (
-                  <Input
-                    type="number"
-                    value={editValues.cost_per_kg}
-                    onChange={(e) => setEditValues({ ...editValues, cost_per_kg: parseFloat(e.target.value) })}
-                    className="w-24 h-8"
-                  />
-                ) : (
-                  `$${product.cost_per_kg.toFixed(2)}`
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                {editingId === product.id ? (
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={editValues.stock_kg}
-                    onChange={(e) => setEditValues({ ...editValues, stock_kg: parseFloat(e.target.value) })}
-                    className="w-24 h-8"
-                  />
-                ) : (
-                  product.stock_kg.toFixed(1)
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <div className="w-12 h-2 rounded-full bg-muted overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${product.quality_score}%` }}
-                    />
+          {products.map((product) => {
+            const isPending = hasPendingRequest(product.id);
+            
+            return (
+              <TableRow key={product.id} className={isPending ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {product.name}
+                    {isPending && (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1">
+                        <Clock className="h-3 w-3" />
+                        Pending
+                      </Badge>
+                    )}
                   </div>
-                  <span className="text-xs text-muted-foreground">{product.quality_score}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                {editingId === product.id ? (
-                  <Select
-                    value={editValues.status}
-                    onValueChange={(value) => setEditValues({ ...editValues, status: value as MatchaProduct["status"] })}
-                  >
-                    <SelectTrigger className="w-32 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="in_stock">In Stock</SelectItem>
-                      <SelectItem value="low_stock">Low Stock</SelectItem>
-                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                      <SelectItem value="discontinued">Discontinued</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
+                </TableCell>
+                <TableCell>
+                  <Badge className={cn("capitalize", gradeColors[product.grade])}>
+                    {product.grade}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{product.origin}</TableCell>
+                <TableCell className="text-right">
+                  ${Number(product.cost_per_kg).toFixed(2)}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {Number(product.stock_kg).toFixed(1)}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <div className="w-12 h-2 rounded-full bg-muted overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${product.quality_score}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">{product.quality_score}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
                   <Badge variant="outline" className={cn("capitalize", statusColors[product.status])}>
                     {product.status.replace("_", " ")}
                   </Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-1">
-                  {editingId === product.id ? (
-                    <>
-                      <Button size="icon" variant="ghost" onClick={saveEdit} className="h-8 w-8">
-                        <Check className="h-4 w-4 text-primary" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8">
-                        <X className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="icon" variant="ghost" onClick={() => startEditing(product)} className="h-8 w-8">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="icon" variant="ghost" onClick={() => setHistoryProduct(product)} className="h-8 w-8">
-                            <History className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Change History: {product.name}</DialogTitle>
-                            <DialogDescription>
-                              View and revert previous changes to this product's inventory.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <ChangeHistory 
-                            changes={changes || []} 
-                            onRevert={handleRevert}
-                            isReverting={revertChange.isPending}
-                          />
-                        </DialogContent>
-                      </Dialog>
-                    </>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={() => setEditingProduct(product)} 
+                      className="h-8 w-8"
+                      disabled={isPending}
+                      title={isPending ? "This product has a pending stock change request" : "Request stock change"}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          onClick={() => setHistoryProduct(product)} 
+                          className="h-8 w-8"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Change History: {product.name}</DialogTitle>
+                          <DialogDescription>
+                            View and revert previous changes to this product's inventory.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <ChangeHistory 
+                          changes={changes || []} 
+                          onRevert={handleRevert}
+                          isReverting={revertChange.isPending}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
+
+      {/* Stock Change Request Dialog */}
+      {editingProduct && (
+        <StockChangeRequestDialog
+          product={editingProduct}
+          open={!!editingProduct}
+          onOpenChange={(open) => !open && setEditingProduct(null)}
+        />
+      )}
     </>
   );
 }
