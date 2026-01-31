@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      client_orders: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          order_date: string
+          product_id: string
+          quantity_kg: number
+          status: string
+          total_revenue: number | null
+          unit_price: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          order_date?: string
+          product_id: string
+          quantity_kg: number
+          status?: string
+          total_revenue?: number | null
+          unit_price: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          order_date?: string
+          product_id?: string
+          quantity_kg?: number
+          status?: string
+          total_revenue?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "matcha_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inventory_changes: {
+        Row: {
+          change_reason: string | null
+          changed_at: string
+          field_changed: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          product_id: string
+          reverted_at: string | null
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_at?: string
+          field_changed: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          product_id: string
+          reverted_at?: string | null
+        }
+        Update: {
+          change_reason?: string | null
+          changed_at?: string
+          field_changed?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          product_id?: string
+          reverted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_changes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "matcha_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matcha_products: {
+        Row: {
+          cost_per_kg: number
+          created_at: string
+          grade: string
+          id: string
+          name: string
+          origin: string
+          quality_score: number
+          status: string
+          stock_kg: number
+          updated_at: string
+        }
+        Insert: {
+          cost_per_kg: number
+          created_at?: string
+          grade: string
+          id?: string
+          name: string
+          origin: string
+          quality_score: number
+          status?: string
+          stock_kg?: number
+          updated_at?: string
+        }
+        Update: {
+          cost_per_kg?: number
+          created_at?: string
+          grade?: string
+          id?: string
+          name?: string
+          origin?: string
+          quality_score?: number
+          status?: string
+          stock_kg?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
