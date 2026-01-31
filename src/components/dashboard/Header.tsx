@@ -1,16 +1,76 @@
-import { Leaf } from "lucide-react";
+import { Leaf, Search, BarChart3, Boxes, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export function Header() {
+interface HeaderProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  pendingCount?: number;
+}
+
+export function Header({
+  activeTab,
+  onTabChange,
+  searchQuery,
+  onSearchChange,
+  pendingCount = 0,
+}: HeaderProps) {
   return (
-    <header className="border-b bg-card">
+    <header className="sticky top-0 z-50 border-b bg-card">
       <div className="container py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary">
-            <Leaf className="h-5 w-5 text-primary-foreground" />
+        <div className="flex items-center justify-between gap-4">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary">
+              <Leaf className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-xl font-bold tracking-tight">Matsu Matcha</h1>
+              <p className="text-sm text-muted-foreground">B2B Dashboard</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Matsu Matcha</h1>
-            <p className="text-sm text-muted-foreground">B2B Dashboard</p>
+
+          {/* Navigation Tabs */}
+          <Tabs value={activeTab} onValueChange={onTabChange}>
+            <TabsList className="grid grid-cols-2 w-auto">
+              <TabsTrigger value="financials" className="flex items-center gap-2 px-4">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Financials</span>
+              </TabsTrigger>
+              <TabsTrigger value="operations" className="flex items-center gap-2 px-4">
+                <Boxes className="h-4 w-4" />
+                <span className="hidden sm:inline">Operations</span>
+                {pendingCount > 0 && (
+                  <span className="rounded-full bg-amber-500 text-amber-50 px-1.5 py-0.5 text-xs font-medium">
+                    {pendingCount}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Search */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products, clients..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9 pr-8"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                onClick={() => onSearchChange("")}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
