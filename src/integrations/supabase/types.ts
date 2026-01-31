@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_allocations: {
+        Row: {
+          allocated_kg: number
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          product_id: string
+          reserved_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          allocated_kg?: number
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          reserved_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allocated_kg?: number
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          reserved_until?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_allocations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_allocations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "matcha_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_orders: {
         Row: {
           client_id: string
@@ -145,6 +193,8 @@ export type Database = {
           name: string
           origin: string
           quality_score: number
+          reorder_point_kg: number | null
+          reorder_quantity_kg: number | null
           status: string
           stock_kg: number
           updated_at: string
@@ -157,6 +207,8 @@ export type Database = {
           name: string
           origin: string
           quality_score: number
+          reorder_point_kg?: number | null
+          reorder_quantity_kg?: number | null
           status?: string
           stock_kg?: number
           updated_at?: string
@@ -169,11 +221,163 @@ export type Database = {
           name?: string
           origin?: string
           quality_score?: number
+          reorder_point_kg?: number | null
+          reorder_quantity_kg?: number | null
           status?: string
           stock_kg?: number
           updated_at?: string
         }
         Relationships: []
+      }
+      supplier_products: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary_supplier: boolean | null
+          last_price_update: string | null
+          min_order_kg: number | null
+          notes: string | null
+          product_id: string
+          supplier_id: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary_supplier?: boolean | null
+          last_price_update?: string | null
+          min_order_kg?: number | null
+          notes?: string | null
+          product_id: string
+          supplier_id: string
+          unit_cost: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary_supplier?: boolean | null
+          last_price_update?: string | null
+          min_order_kg?: number | null
+          notes?: string | null
+          product_id?: string
+          supplier_id?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "matcha_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          country: string | null
+          created_at: string
+          id: string
+          lead_time_days: number | null
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          lead_time_days?: number | null
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          lead_time_days?: number | null
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      warehouse_arrivals: {
+        Row: {
+          arrival_date: string
+          batch_number: string | null
+          created_at: string
+          expiry_date: string | null
+          id: string
+          notes: string | null
+          product_id: string
+          quantity_kg: number
+          status: string
+          supplier_id: string
+          unit_cost: number
+        }
+        Insert: {
+          arrival_date?: string
+          batch_number?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          product_id: string
+          quantity_kg: number
+          status?: string
+          supplier_id: string
+          unit_cost: number
+        }
+        Update: {
+          arrival_date?: string
+          batch_number?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string
+          quantity_kg?: number
+          status?: string
+          supplier_id?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_arrivals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "matcha_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_arrivals_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
