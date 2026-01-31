@@ -6,6 +6,7 @@ import { ClientProfitabilityTable } from "@/components/dashboard/ClientProfitabi
 import { RecommendationsPanel } from "@/components/dashboard/RecommendationsPanel";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { InventoryManagement } from "@/components/dashboard/InventoryManagement";
+import { OrdersManagement } from "@/components/dashboard/OrdersManagement";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -137,6 +138,7 @@ const Index = () => {
         <Tabs defaultValue="inventory" className="space-y-4">
           <TabsList>
             <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
+            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
             <TabsTrigger value="clients">Client Profitability</TabsTrigger>
             <TabsTrigger value="stock">Quick Stock Update</TabsTrigger>
             <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
@@ -151,6 +153,15 @@ const Index = () => {
               allocations={allocations}
               clients={clients}
               isLoading={productsLoading || isInventoryLoading}
+            />
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <OrdersManagement
+              orders={orders}
+              clients={clients}
+              products={products}
+              isLoading={ordersLoading}
             />
           </TabsContent>
 
