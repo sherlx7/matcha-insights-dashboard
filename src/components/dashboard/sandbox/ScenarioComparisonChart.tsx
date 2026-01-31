@@ -2,10 +2,10 @@ import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { Client, MatchaProduct, Supplier, SupplierProduct } from "@/types/database";
+import { Client, MatchaProduct, Supplier, SupplierProduct, ClientOrder } from "@/types/database";
 import { SupplierSimulationState } from "./SupplierSandbox";
 import { ClientSimulationState } from "./ClientSandbox";
-import { SHIPPING_COST_PER_KG, IMPORT_TAX_RATE } from "@/types/database";
+import { IMPORT_TAX_RATE } from "@/types/database";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface ScenarioComparisonChartProps {
@@ -15,6 +15,9 @@ interface ScenarioComparisonChartProps {
   supplierProducts: SupplierProduct[];
   supplierSimulation: SupplierSimulationState;
   clientSimulation: ClientSimulationState;
+  originalSupplierState: SupplierSimulationState;
+  originalClientState: ClientSimulationState;
+  orders: ClientOrder[];
 }
 
 export function ScenarioComparisonChart({
@@ -24,6 +27,9 @@ export function ScenarioComparisonChart({
   supplierProducts,
   supplierSimulation,
   clientSimulation,
+  originalSupplierState,
+  originalClientState,
+  orders,
 }: ScenarioComparisonChartProps) {
   const productMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -39,22 +45,36 @@ export function ScenarioComparisonChart({
     return map;
   }, [supplierProducts, supplierMap]);
 
-  const calculateCost = (productId: string, simulated: boolean) => {
+  // Calculate historical volumes per client-product from orders
+  const clientProductVolumes = useMemo(() => {
+    const volumes: Record<string, Record<string, number>> = {};
+    clients.forEach(client => {
+      volumes[client.id] = {};
+      const clientOrders = orders.filter(o => o.client_id === client.id);
+      clientOrders.forEach(order => {
+        if (!volumes[client.id][order.product_id]) {
+          volumes[client.id][order.product_id] = 0;
+        }
+        volumes[client.id][order.product_id] += Number(order.quantity_kg);
+      });
+      // Convert to monthly average (assuming 3-month data)
+      Object.keys(volumes[client.id]).forEach(productId => {
+        volumes[client.id][productId] = Math.round(volumes[client.id][productId] / 3);
+      });
+    });
+    return volumes;
+  }, [clients, orders]);
+
+  const calculateCost = (productId: string, supplierState: SupplierSimulationState) => {
     const product = productMap.get(productId);
     const supplier = primarySupplierMap.get(productId);
     if (!product) return 0;
 
-    const costJpy = simulated 
-      ? (supplierSimulation.productCostsJpy[productId] ?? (product.cost_per_kg_jpy || 0))
-      : (product.cost_per_kg_jpy || 0);
-
+    const costJpy = supplierState.productCostsJpy[productId] ?? (product.cost_per_kg_jpy || 0);
     const exchangeRate = supplier 
-      ? (simulated 
-          ? (supplierSimulation.exchangeRates[supplier.id] ?? (supplier.exchange_rate_jpy_usd || 0.0067))
-          : (supplier.exchange_rate_jpy_usd || 0.0067))
+      ? (supplierState.exchangeRates[supplier.id] ?? (supplier.exchange_rate_jpy_usd || 0.0067))
       : 0.0067;
-
-    const shipping = simulated ? supplierSimulation.shippingCostPerKg : SHIPPING_COST_PER_KG;
+    const shipping = supplierState.shippingCostPerKg;
 
     const costUsd = costJpy * exchangeRate;
     const subtotal = costUsd + shipping;
@@ -71,34 +91,54 @@ export function ScenarioComparisonChart({
       let actualCOGS = 0;
       let simulatedRevenue = 0;
       let simulatedCOGS = 0;
+      const growthFactor = 1 + (idx * 0.02);
 
       clients.forEach(client => {
-        const avgSellingPrice = products.reduce((sum, p) => 
-          sum + (p.selling_price_per_kg || 0), 0) / Math.max(1, products.filter(p => p.selling_price_per_kg).length);
+        const clientVolumes = clientProductVolumes[client.id] || {};
         
-        const avgSimSellingPrice = products.reduce((sum, p) => 
-          sum + (clientSimulation.sellingPrices[p.id] ?? (p.selling_price_per_kg || 0)), 0) / Math.max(1, products.filter(p => p.selling_price_per_kg).length);
+        // Calculate revenue and COGS based on actual product order patterns
+        Object.entries(clientVolumes).forEach(([productId, baseVolume]) => {
+          const product = productMap.get(productId);
+          if (!product) return;
 
-        const actualDiscount = client.discount_percent || 0;
-        const simDiscount = clientSimulation.discounts[client.id] ?? actualDiscount;
+          // ACTUAL scenario: use original database values
+          const actualSellingPrice = originalClientState.sellingPrices[productId] ?? (product.selling_price_per_kg || 0);
+          const actualDiscount = originalClientState.discounts[client.id] ?? (client.discount_percent || 0);
+          const actualVolume = (originalClientState.monthlyVolumes[client.id] ?? baseVolume) > 0 
+            ? baseVolume * growthFactor 
+            : 0;
+          const actualEffectivePrice = actualSellingPrice * (1 - actualDiscount / 100);
+          actualRevenue += actualVolume * actualEffectivePrice;
+          actualCOGS += actualVolume * calculateCost(productId, originalSupplierState);
 
-        const baseVolume = clientSimulation.monthlyVolumes[client.id] ?? 20;
-        const growthFactor = 1 + (idx * 0.02);
+          // SIMULATED scenario: use current simulation values
+          const simSellingPrice = clientSimulation.sellingPrices[productId] ?? (product.selling_price_per_kg || 0);
+          const simDiscount = clientSimulation.discounts[client.id] ?? (client.discount_percent || 0);
+          // Apply volume scaling based on total client volume simulation vs original
+          const originalClientVolume = originalClientState.monthlyVolumes[client.id] || 1;
+          const simClientVolume = clientSimulation.monthlyVolumes[client.id] ?? originalClientVolume;
+          const volumeRatio = originalClientVolume > 0 ? simClientVolume / originalClientVolume : 1;
+          const simVolume = baseVolume * volumeRatio * growthFactor;
+          const simEffectivePrice = simSellingPrice * (1 - simDiscount / 100);
+          simulatedRevenue += simVolume * simEffectivePrice;
+          simulatedCOGS += simVolume * calculateCost(productId, supplierSimulation);
+        });
 
-        const actualVolume = baseVolume * growthFactor;
-        const simVolume = (clientSimulation.monthlyVolumes[client.id] ?? baseVolume) * growthFactor;
-
-        const actualEffectivePrice = avgSellingPrice * (1 - actualDiscount / 100);
-        const simEffectivePrice = avgSimSellingPrice * (1 - simDiscount / 100);
-
-        actualRevenue += actualVolume * actualEffectivePrice;
-        simulatedRevenue += simVolume * simEffectivePrice;
-
-        const avgActualCost = products.reduce((sum, p) => sum + calculateCost(p.id, false), 0) / Math.max(1, products.length);
-        const avgSimCost = products.reduce((sum, p) => sum + calculateCost(p.id, true), 0) / Math.max(1, products.length);
-
-        actualCOGS += actualVolume * avgActualCost;
-        simulatedCOGS += simVolume * avgSimCost;
+        // Handle clients with no orders but with simulated volume
+        if (Object.keys(clientVolumes).length === 0) {
+          const simVolume = clientSimulation.monthlyVolumes[client.id] ?? 0;
+          if (simVolume > 0) {
+            // Use average product prices and costs for clients without order history
+            const avgSellingPrice = products.reduce((sum, p) => 
+              sum + (clientSimulation.sellingPrices[p.id] ?? (p.selling_price_per_kg || 0)), 0) / Math.max(1, products.length);
+            const simDiscount = clientSimulation.discounts[client.id] ?? (client.discount_percent || 0);
+            const simEffectivePrice = avgSellingPrice * (1 - simDiscount / 100);
+            simulatedRevenue += simVolume * growthFactor * simEffectivePrice;
+            
+            const avgCost = products.reduce((sum, p) => sum + calculateCost(p.id, supplierSimulation), 0) / Math.max(1, products.length);
+            simulatedCOGS += simVolume * growthFactor * avgCost;
+          }
+        }
       });
 
       const actualProfit = actualRevenue - actualCOGS;
@@ -116,7 +156,7 @@ export function ScenarioComparisonChart({
         simulatedMargin,
       };
     });
-  }, [clients, products, clientSimulation, supplierSimulation, calculateCost]);
+  }, [clients, products, clientSimulation, supplierSimulation, originalClientState, originalSupplierState, clientProductVolumes, calculateCost, productMap]);
 
   const summary = useMemo(() => {
     const totalActualProfit = forecastData.reduce((sum, d) => sum + d.actualProfit, 0);
