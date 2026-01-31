@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatSGD } from "@/lib/currency";
 import { 
   useMatchaProducts, 
   useClients, 
@@ -168,13 +169,13 @@ const Index = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <KPICard
             title="Total Revenue"
-            value={`$${kpis.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={formatSGD(kpis.totalRevenue)}
             subtitle={dateRange?.from ? "Selected period" : "All time"}
             icon={DollarSign}
           />
           <KPICard
             title="Total Profit"
-            value={`$${kpis.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={formatSGD(kpis.totalProfit)}
             subtitle={`${kpis.avgMargin.toFixed(1)}% avg margin`}
             icon={TrendingUp}
             trend={{ value: kpis.avgMargin, isPositive: kpis.avgMargin >= 25 }}
