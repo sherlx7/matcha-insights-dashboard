@@ -1,0 +1,237 @@
+// Prisma schema for Matsu Matcha B2B Dashboard
+// Uses PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Use SQLite for local development, PostgreSQL for production
+  // To use PostgreSQL, change provider to "postgresql" and update DATABASE_URL
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String?
+  role          String   @default("VIEWER") // ADMIN, VIEWER
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// ==================== SUPPLIER ====================
+
+model Supplier {
+  id                 String   @id @default(uuid())
+  name               String
+  country            String   @default("Japan")
+  currency           String   @default("JPY")
+  typicalLeadTimeDays Int     @default(21) @map("typical_lead_time_days")
+  reliabilityScore   Float    @default(0.9) @map("reliability_score") // 0-1
+  minOrderKg         Float    @default(10) @map("min_order_kg")
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  skuOffers          SupplierSKUOffer[]
+  inventoryLots      InventoryLot[]
+  orderPlans         OrderPlan[]
+
+  @@map("suppliers")
+}
+
+// ==================== MATCHA SKU ====================
+
+model MatchaSKU {
+  id                   String   @id @default(uuid())
+  name                 String
+  qualityTier          String   @map("quality_tier") // COMPETITION, CEREMONIAL, CAFE
+  tastingNotes         String?  @map("tasting_notes")
+  intendedUse          String   @default("LATTE") @map("intended_use") // LATTE, STRAIGHT, BOTH
+  substitutableGroupId String?  @map("substitutable_group_id")
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  supplierOffers       SupplierSKUOffer[]
+  contractLines        ClientContractLine[]
+  inventoryLots        InventoryLot[]
+  allocations          Allocation[]
+  orderPlanLines       OrderPlanLine[]
+
+  @@map("matcha_skus")
+}
+
+// ==================== SUPPLIER SKU OFFER ====================
+
+model SupplierSKUOffer {
+  id            String   @id @default(uuid())
+  supplierId    String   @map("supplier_id")
+  skuId         String   @map("sku_id")
+  costJpyPerKg  Float    @map("cost_jpy_per_kg")
+  lastUpdatedAt DateTime @default(now()) @map("last_updated_at")
+  moqKg         Float?   @map("moq_kg")
+  packSizeKg    Float?   @map("pack_size_kg")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  supplier      Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  sku           MatchaSKU @relation(fields: [skuId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, skuId])
+  @@map("supplier_sku_offers")
+}
+
+// ==================== CLIENT ====================
+
+model Client {
+  id                String   @id @default(uuid())
+  name              String
+  segment           String   @default("CAFE") // CAFE, BRAND, OTHER
+  defaultDiscountPct Float   @default(0) @map("default_discount_pct")
+  paymentTerms      String?  @map("payment_terms")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  contractLines     ClientContractLine[]
+  allocations       Allocation[]
+
+  @@map("clients")
+}
+
+// ==================== CLIENT CONTRACT LINE ====================
+
+model ClientContractLine {
+  id                 String   @id @default(uuid())
+  clientId           String   @map("client_id")
+  skuId              String   @map("sku_id")
+  sellingSgdPerKg    Float    @map("selling_sgd_per_kg")
+  discountPct        Float    @default(0) @map("discount_pct")
+  monthlyVolumeKg    Float    @map("monthly_volume_kg")
+  deliveryFrequency  String   @default("MONTHLY") @map("delivery_frequency") // WEEKLY, BIWEEKLY, MONTHLY
+  nextDeliveryDate   DateTime? @map("next_delivery_date")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  client             Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sku                MatchaSKU @relation(fields: [skuId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, skuId])
+  @@map("client_contract_lines")
+}
+
+// ==================== INVENTORY LOT ====================
+
+model InventoryLot {
+  id                 String   @id @default(uuid())
+  supplierId         String   @map("supplier_id")
+  skuId              String   @map("sku_id")
+  arrivedAt          DateTime @map("arrived_at")
+  qtyKgTotal         Float    @map("qty_kg_total")
+  qtyKgRemaining     Float    @map("qty_kg_remaining")
+  costBasisSgdPerKg  Float    @map("cost_basis_sgd_per_kg")
+  warehouseLocation  String?  @map("warehouse_location")
+  expiryDate         DateTime? @map("expiry_date")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  supplier           Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  sku                MatchaSKU @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  allocations        Allocation[]
+
+  @@map("inventory_lots")
+}
+
+// ==================== ALLOCATION ====================
+
+model Allocation {
+  id              String   @id @default(uuid())
+  inventoryLotId  String   @map("inventory_lot_id")
+  clientId        String   @map("client_id")
+  skuId           String   @map("sku_id")
+  qtyKgAllocated  Float    @map("qty_kg_allocated")
+  status          String   @default("RESERVED") // RESERVED, FULFILLED, RELEASED
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  inventoryLot    InventoryLot @relation(fields: [inventoryLotId], references: [id], onDelete: Cascade)
+  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sku             MatchaSKU    @relation(fields: [skuId], references: [id], onDelete: Cascade)
+
+  @@map("allocations")
+}
+
+// ==================== FX RATE ====================
+
+model FXRate {
+  id        String   @id @default(uuid())
+  base      String   @default("JPY")
+  quote     String   @default("SGD")
+  rate      Float    // How many SGD per 1 JPY (e.g., 0.009)
+  source    String   @default("MANUAL") // MANUAL, API
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("fx_rates")
+}
+
+// ==================== ORDER PLAN ====================
+
+model OrderPlan {
+  id                  String   @id @default(uuid())
+  supplierId          String   @map("supplier_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  status              String   @default("DRAFT") // DRAFT, SUBMITTED, RECEIVED
+  expectedArrivalDate DateTime? @map("expected_arrival_date")
+  notes               String?
+
+  supplier            Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  lines               OrderPlanLine[]
+
+  @@map("order_plans")
+}
+
+// ==================== ORDER PLAN LINE ====================
+
+model OrderPlanLine {
+  id                      String   @id @default(uuid())
+  orderPlanId             String   @map("order_plan_id")
+  skuId                   String   @map("sku_id")
+  qtyKg                   Float    @map("qty_kg")
+  costJpyPerKgSnapshot    Float    @map("cost_jpy_per_kg_snapshot")
+  fxRateSnapshot          Float    @map("fx_rate_snapshot")
+  projectedLandedSgdPerKg Float    @map("projected_landed_sgd_per_kg")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  orderPlan               OrderPlan @relation(fields: [orderPlanId], references: [id], onDelete: Cascade)
+  sku                     MatchaSKU @relation(fields: [skuId], references: [id], onDelete: Cascade)
+
+  @@map("order_plan_lines")
+}
+
+// ==================== AUDIT LOG ====================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      String   // CREATE, UPDATE, DELETE
+  beforeJson  String?  @map("before_json")
+  afterJson   String?  @map("after_json")
+  actorUserId String?  @map("actor_user_id")
+  timestamp   DateTime @default(now())
+
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
