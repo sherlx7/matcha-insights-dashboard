@@ -1,6 +1,9 @@
 {
   "name": "matcha-insights-dashboard",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "version": "1.0.0",
   "type": "module",
   "scripts": {
