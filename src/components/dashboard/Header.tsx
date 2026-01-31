@@ -1,6 +1,5 @@
-import { Leaf } from "lucide-react";
+import { Leaf, BarChart3, Boxes, FlaskConical } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Boxes } from "lucide-react";
 
 interface HeaderProps {
   activeTab: string;
@@ -30,7 +29,7 @@ export function Header({
 
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={onTabChange}>
-            <TabsList className="grid grid-cols-2 w-auto">
+            <TabsList className="grid grid-cols-3 w-auto">
               <TabsTrigger value="financials" className="flex items-center gap-2 px-4">
                 <BarChart3 className="h-4 w-4" />
                 <span className="hidden sm:inline">Financials</span>
@@ -43,6 +42,10 @@ export function Header({
                     {pendingCount}
                   </span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="sandbox" className="flex items-center gap-2 px-4">
+                <FlaskConical className="h-4 w-4" />
+                <span className="hidden sm:inline">Sandbox</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
