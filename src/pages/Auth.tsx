@@ -1,27 +1,27 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Leaf, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, Leaf } from "lucide-react";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if already logged in
@@ -39,20 +39,6 @@ export default function Auth() {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-
-    if (result.error) {
-      setError(result.error.message || "Failed to sign in with Google");
-      setIsLoading(false);
-    }
-  };
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,167 +113,391 @@ export default function Auth() {
         setError(error.message);
       }
     } else {
-      setSuccess("Account created! Please check your email to verify your account. Once verified, an admin will approve your access.");
+      setSuccess("Account created successfully! You can now sign in.");
       setEmail("");
       setPassword("");
       setFullName("");
+      setTimeout(() => setActiveTab("signin"), 2000);
     }
     setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
-              <Leaf className="h-7 w-7 text-primary-foreground" />
+    <div className="min-h-screen flex">
+      {/* Left Panel - Brand Experience */}
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
+        {/* Layered Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a2f1a] via-[#2d4a2d] to-[#1a3a1a]" />
+
+        {/* Noise Texture Overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.15]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          }}
+        />
+
+        {/* Animated Steam Effect */}
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute opacity-[0.08] animate-steam"
+              style={{
+                left: `${20 + i * 15}%`,
+                bottom: '30%',
+                width: '60px',
+                height: '200px',
+                background: 'linear-gradient(to top, transparent, rgba(255,255,255,0.4), transparent)',
+                borderRadius: '50%',
+                filter: 'blur(20px)',
+                animationDelay: `${i * 0.8}s`,
+                animationDuration: `${4 + i * 0.5}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Decorative Circles */}
+        <div className="absolute top-20 left-10 w-64 h-64 rounded-full bg-[#3d5a3d]/20 blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-[#4a6b4a]/15 blur-3xl" />
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
+          {/* Logo & Branding */}
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/10">
+              <img
+                src="/MatsuMatcha.jpeg"
+                alt="Matsu Matcha"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div>
+              <h1 className="text-2xl font-light tracking-[0.2em] text-white/90" style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}>
+                MATSU MATCHA
+              </h1>
+              <p className="text-xs tracking-[0.3em] text-white/50 uppercase mt-1">
+                Premium B2B Portal
+              </p>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Matsu Matcha</CardTitle>
-          <CardDescription>
-            B2B Dashboard - Sign in to continue
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+
+          {/* Central Message */}
+          <div className="max-w-md">
+            <div className="mb-8">
+              <div className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6">
+                <span className="text-xs tracking-[0.2em] text-white/60 uppercase">
+                  Sourced from Uji, Kyoto
+                </span>
+              </div>
+              <h2
+                className="text-5xl font-light text-white/95 leading-[1.15] mb-6"
+                style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+              >
+                Where tradition<br />
+                meets <span className="italic text-[#8fb88f]">excellence</span>
+              </h2>
+              <p className="text-white/50 text-lg leading-relaxed font-light">
+                Access your dashboard to manage orders, track inventory, and discover insights
+                powered by our AI recommendation engine.
+              </p>
+            </div>
+
+            {/* Stats */}
+            <div className="flex gap-12">
+              {[
+                { value: "12+", label: "Supplier Partners" },
+                { value: "98%", label: "Quality Score" },
+                { value: "24h", label: "Order Processing" },
+              ].map((stat, i) => (
+                <div key={i} className="group">
+                  <div
+                    className="text-3xl font-light text-[#8fb88f] mb-1 transition-transform group-hover:translate-y-[-2px]"
+                    style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+                  >
+                    {stat.value}
+                  </div>
+                  <div className="text-xs tracking-[0.15em] text-white/40 uppercase">
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-white/30">
+              &copy; 2024 Matsu Matcha Pte Ltd. Singapore.
+            </p>
+            <div className="flex items-center gap-2">
+              <Leaf className="h-4 w-4 text-[#6b8f6b]" />
+              <span className="text-xs text-white/40">Sustainably Sourced</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Auth Form */}
+      <div className="w-full lg:w-[45%] flex items-center justify-center p-8 bg-[#faf9f7]">
+        {/* Subtle Paper Texture */}
+        <div
+          className="absolute inset-0 lg:left-[55%] opacity-50 pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")`,
+          }}
+        />
+
+        <div className="relative w-full max-w-md">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg">
+              <img
+                src="/MatsuMatcha.jpeg"
+                alt="Matsu Matcha"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <h1
+              className="text-xl tracking-[0.15em] text-[#2d4a2d]"
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+            >
+              MATSU MATCHA
+            </h1>
+          </div>
+
+          {/* Header */}
+          <div className="mb-10">
+            <h2
+              className="text-3xl text-[#1a2f1a] mb-2"
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+            >
+              {activeTab === "signin" ? "Welcome back" : "Join us"}
+            </h2>
+            <p className="text-[#6b7c6b] text-sm">
+              {activeTab === "signin"
+                ? "Sign in to access your B2B dashboard"
+                : "Create an account to get started"}
+            </p>
+          </div>
+
+          {/* Tab Switcher */}
+          <div className="flex mb-8 p-1 bg-[#e8e6e1] rounded-xl">
+            {(["signin", "signup"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setError(null);
+                  setSuccess(null);
+                }}
+                className={cn(
+                  "flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300",
+                  activeTab === tab
+                    ? "bg-white text-[#2d4a2d] shadow-sm"
+                    : "text-[#6b7c6b] hover:text-[#4a5f4a]"
+                )}
+              >
+                {tab === "signin" ? "Sign In" : "Sign Up"}
+              </button>
+            ))}
+          </div>
+
+          {/* Alerts */}
           {error && (
-            <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive" className="mb-6 border-red-200 bg-red-50">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           {success && (
-            <Alert className="mb-4 border-primary/50 bg-primary/10">
-              <CheckCircle className="h-4 w-4 text-primary" />
-              <AlertDescription className="text-primary">{success}</AlertDescription>
+            <Alert className="mb-6 border-[#8fb88f]/30 bg-[#8fb88f]/10">
+              <CheckCircle className="h-4 w-4 text-[#4a6b4a]" />
+              <AlertDescription className="text-[#4a6b4a]">{success}</AlertDescription>
             </Alert>
           )}
 
-          <Tabs defaultValue="signin" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="signin" className="space-y-4">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                )}
-                Continue with Google
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or</span>
-                </div>
-              </div>
-
-              <form onSubmit={handleEmailSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+          {/* Form */}
+          <form onSubmit={activeTab === "signin" ? handleEmailSignIn : handleEmailSignUp} className="space-y-5">
+            {activeTab === "signup" && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="fullName"
+                  className={cn(
+                    "text-sm font-medium transition-colors duration-200",
+                    focusedField === "fullName" ? "text-[#4a6b4a]" : "text-[#4a5a4a]"
+                  )}
+                >
+                  Full Name
+                </Label>
+                <div className="relative">
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={handleEmailSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <Input
-                    id="signup-name"
+                    id="fullName"
                     type="text"
-                    placeholder="John Doe"
+                    placeholder="Enter your full name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    onFocus={() => setFocusedField("fullName")}
+                    onBlur={() => setFocusedField(null)}
+                    className={cn(
+                      "h-12 bg-white border-[#d4d1c9] rounded-xl px-4 text-[#1a2f1a] placeholder:text-[#a0a89a]",
+                      "transition-all duration-300",
+                      "focus:border-[#8fb88f] focus:ring-2 focus:ring-[#8fb88f]/20",
+                      "hover:border-[#b0baa8]"
+                    )}
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
+                  <div
+                    className={cn(
+                      "absolute bottom-0 left-4 right-4 h-0.5 bg-gradient-to-r from-[#8fb88f] to-[#6b8f6b] rounded-full",
+                      "transition-transform duration-300 origin-left",
+                      focusedField === "fullName" ? "scale-x-100" : "scale-x-0"
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
-                </Button>
-              </form>
+              </div>
+            )}
 
-              <p className="text-xs text-center text-muted-foreground">
-                New accounts require admin approval before accessing the dashboard.
-              </p>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label
+                htmlFor="email"
+                className={cn(
+                  "text-sm font-medium transition-colors duration-200",
+                  focusedField === "email" ? "text-[#4a6b4a]" : "text-[#4a5a4a]"
+                )}
+              >
+                Email Address
+              </Label>
+              <div className="relative">
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  className={cn(
+                    "h-12 bg-white border-[#d4d1c9] rounded-xl px-4 text-[#1a2f1a] placeholder:text-[#a0a89a]",
+                    "transition-all duration-300",
+                    "focus:border-[#8fb88f] focus:ring-2 focus:ring-[#8fb88f]/20",
+                    "hover:border-[#b0baa8]"
+                  )}
+                  required
+                />
+                <div
+                  className={cn(
+                    "absolute bottom-0 left-4 right-4 h-0.5 bg-gradient-to-r from-[#8fb88f] to-[#6b8f6b] rounded-full",
+                    "transition-transform duration-300 origin-left",
+                    focusedField === "email" ? "scale-x-100" : "scale-x-0"
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="password"
+                className={cn(
+                  "text-sm font-medium transition-colors duration-200",
+                  focusedField === "password" ? "text-[#4a6b4a]" : "text-[#4a5a4a]"
+                )}
+              >
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  className={cn(
+                    "h-12 bg-white border-[#d4d1c9] rounded-xl px-4 text-[#1a2f1a] placeholder:text-[#a0a89a]",
+                    "transition-all duration-300",
+                    "focus:border-[#8fb88f] focus:ring-2 focus:ring-[#8fb88f]/20",
+                    "hover:border-[#b0baa8]"
+                  )}
+                  required
+                />
+                <div
+                  className={cn(
+                    "absolute bottom-0 left-4 right-4 h-0.5 bg-gradient-to-r from-[#8fb88f] to-[#6b8f6b] rounded-full",
+                    "transition-transform duration-300 origin-left",
+                    focusedField === "password" ? "scale-x-100" : "scale-x-0"
+                  )}
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className={cn(
+                "w-full h-12 mt-6 rounded-xl text-sm font-medium tracking-wide",
+                "bg-gradient-to-r from-[#3d5a3d] to-[#4a6b4a]",
+                "hover:from-[#4a6b4a] hover:to-[#5a7b5a]",
+                "text-white shadow-lg shadow-[#3d5a3d]/20",
+                "transition-all duration-300",
+                "hover:shadow-xl hover:shadow-[#3d5a3d]/30 hover:-translate-y-0.5",
+                "active:translate-y-0"
+              )}
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                activeTab === "signin" ? "Sign In" : "Create Account"
+              )}
+            </Button>
+          </form>
+
+          {/* Footer Note */}
+          {activeTab === "signup" && (
+            <p className="mt-6 text-xs text-center text-[#8b9a8b]">
+              By creating an account, you agree to our Terms of Service and Privacy Policy.
+            </p>
+          )}
+
+          {activeTab === "signin" && (
+            <p className="mt-6 text-xs text-center text-[#8b9a8b]">
+              Trouble signing in? Contact{" "}
+              <a href="mailto:support@matsumatcha.com" className="text-[#4a6b4a] hover:underline">
+                support@matsumatcha.com
+              </a>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Global Styles for Animation */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&display=swap');
+
+        @keyframes steam {
+          0% {
+            transform: translateY(0) scaleX(1);
+            opacity: 0;
+          }
+          15% {
+            opacity: 0.08;
+          }
+          50% {
+            transform: translateY(-80px) scaleX(1.5);
+            opacity: 0.05;
+          }
+          100% {
+            transform: translateY(-160px) scaleX(2);
+            opacity: 0;
+          }
+        }
+
+        .animate-steam {
+          animation: steam 4s ease-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
