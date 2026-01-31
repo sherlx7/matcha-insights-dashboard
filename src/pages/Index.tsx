@@ -9,6 +9,7 @@ import { InventoryManagement } from "@/components/dashboard/InventoryManagement"
 import { OrdersManagement } from "@/components/dashboard/OrdersManagement";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { PendingApprovalsPanel } from "@/components/dashboard/PendingApprovalsPanel";
+import { FinancialAnalysis } from "@/components/dashboard/FinancialAnalysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DateRange } from "react-day-picker";
@@ -32,7 +33,9 @@ import {
   Users,
   AlertTriangle,
   ShieldCheck,
-  Info
+  Info,
+  BarChart3,
+  Boxes
 } from "lucide-react";
 
 const Index = () => {
@@ -165,100 +168,139 @@ const Index = () => {
           />
         </div>
 
-        {/* Revenue Chart */}
-        <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
-
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="inventory" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
-            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
-            <TabsTrigger value="clients">Client Profitability</TabsTrigger>
-            <TabsTrigger value="stock" className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" />
-              Manual Stock Adjustments
+        {/* Main Section Tabs - Financials vs Operations */}
+        <Tabs defaultValue="financials" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="financials" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Financials
             </TabsTrigger>
-            <TabsTrigger value="approvals" className="flex items-center gap-2">
-              Approvals
+            <TabsTrigger value="operations" className="flex items-center gap-2">
+              <Boxes className="h-4 w-4" />
+              Operations
               {pendingCount > 0 && (
                 <span className="ml-1 rounded-full bg-amber-500 text-amber-50 px-1.5 py-0.5 text-xs font-medium">
                   {pendingCount}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="inventory">
-            <InventoryManagement
-              products={products}
-              suppliers={suppliers}
-              supplierProducts={supplierProducts}
-              arrivals={arrivals}
-              allocations={allocations}
-              clients={clients}
-              isLoading={productsLoading || isInventoryLoading}
-            />
-          </TabsContent>
+          {/* Financials Tab */}
+          <TabsContent value="financials" className="space-y-6">
+            {/* Revenue Chart */}
+            <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
+            
+            {/* Financial Sub-tabs */}
+            <Tabs defaultValue="analysis" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="analysis">AI Analysis & Forecast</TabsTrigger>
+                <TabsTrigger value="orders">Sales Orders</TabsTrigger>
+                <TabsTrigger value="clients">Client Profitability</TabsTrigger>
+                <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="orders">
-            <OrdersManagement
-              orders={orders}
-              clients={clients}
-              products={products}
-              isLoading={ordersLoading}
-            />
-          </TabsContent>
+              <TabsContent value="analysis">
+                <FinancialAnalysis 
+                  clients={clientProfitability}
+                  products={products}
+                  orders={orders}
+                />
+              </TabsContent>
 
-          <TabsContent value="clients">
-            <Card>
-              <CardHeader>
-                <CardTitle>Client Profitability</CardTitle>
-                <CardDescription>
-                  Revenue, COGS, and profit analysis for each client
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ClientProfitabilityTable 
+              <TabsContent value="orders">
+                <OrdersManagement
+                  orders={orders}
+                  clients={clients}
+                  products={products}
+                  isLoading={ordersLoading}
+                />
+              </TabsContent>
+
+              <TabsContent value="clients">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Client Profitability</CardTitle>
+                    <CardDescription>
+                      Revenue, COGS, and profit analysis for each client
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ClientProfitabilityTable 
+                      clients={clientProfitability} 
+                      isLoading={isLoading} 
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="recommendations">
+                <RecommendationsPanel 
                   clients={clientProfitability} 
-                  isLoading={isLoading} 
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="stock">
-            <Card>
-              <CardHeader>
-                <CardTitle>Manual Stock Adjustments</CardTitle>
-                <CardDescription>
-                  Request stock changes with supervisor approval. Stock is usually automated—use this for exceptions only.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    Stock updates are typically automated from warehouse systems. Manual adjustments require supervisor approval for audit purposes (e.g., reservations, damages, quality issues).
-                  </AlertDescription>
-                </Alert>
-                <InventoryTable 
                   products={products} 
-                  isLoading={productsLoading} 
                 />
-              </CardContent>
-            </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
-          <TabsContent value="approvals">
-            <PendingApprovalsPanel products={products} />
-          </TabsContent>
+          {/* Operations Tab */}
+          <TabsContent value="operations" className="space-y-6">
+            <Tabs defaultValue="inventory" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
+                <TabsTrigger value="stock" className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
+                  Manual Stock Adjustments
+                </TabsTrigger>
+                <TabsTrigger value="approvals" className="flex items-center gap-2">
+                  Approvals
+                  {pendingCount > 0 && (
+                    <span className="ml-1 rounded-full bg-amber-500 text-amber-50 px-1.5 py-0.5 text-xs font-medium">
+                      {pendingCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="recommendations">
-            <RecommendationsPanel 
-              clients={clientProfitability} 
-              products={products} 
-            />
+              <TabsContent value="inventory">
+                <InventoryManagement
+                  products={products}
+                  suppliers={suppliers}
+                  supplierProducts={supplierProducts}
+                  arrivals={arrivals}
+                  allocations={allocations}
+                  clients={clients}
+                  isLoading={productsLoading || isInventoryLoading}
+                />
+              </TabsContent>
+
+              <TabsContent value="stock">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manual Stock Adjustments</CardTitle>
+                    <CardDescription>
+                      Request stock changes with supervisor approval. Stock is usually automated—use this for exceptions only.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        Stock updates are typically automated from warehouse systems. Manual adjustments require supervisor approval for audit purposes (e.g., reservations, damages, quality issues).
+                      </AlertDescription>
+                    </Alert>
+                    <InventoryTable 
+                      products={products} 
+                      isLoading={productsLoading} 
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="approvals">
+                <PendingApprovalsPanel products={products} />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </main>
