@@ -1,12 +1,164 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useMemo } from "react";
+import { Header } from "@/components/dashboard/Header";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { InventoryTable } from "@/components/dashboard/InventoryTable";
+import { ClientProfitabilityTable } from "@/components/dashboard/ClientProfitabilityTable";
+import { RecommendationsPanel } from "@/components/dashboard/RecommendationsPanel";
+import { RevenueChart } from "@/components/dashboard/RevenueChart";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  useMatchaProducts, 
+  useClients, 
+  useClientOrders 
+} from "@/hooks/useMatchaData";
+import { ClientProfitability } from "@/types/database";
+import { 
+  DollarSign, 
+  Package, 
+  TrendingUp, 
+  Users 
+} from "lucide-react";
 
 const Index = () => {
+  const { data: products = [], isLoading: productsLoading } = useMatchaProducts();
+  const { data: clients = [], isLoading: clientsLoading } = useClients();
+  const { data: orders = [], isLoading: ordersLoading } = useClientOrders();
+
+  // Calculate client profitability
+  const clientProfitability: ClientProfitability[] = useMemo(() => {
+    if (!clients.length || !orders.length || !products.length) return [];
+
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    return clients.map(client => {
+      const clientOrders = orders.filter(o => o.client_id === client.id);
+      const ordersWithProducts = clientOrders.map(order => ({
+        ...order,
+        product: productMap.get(order.product_id)!,
+      })).filter(o => o.product);
+
+      const totalRevenue = ordersWithProducts.reduce((sum, o) => sum + Number(o.total_revenue), 0);
+      const totalCOGS = ordersWithProducts.reduce((sum, o) => 
+        sum + (Number(o.quantity_kg) * Number(o.product.cost_per_kg)), 0);
+      const profit = totalRevenue - totalCOGS;
+      const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+
+      return {
+        client,
+        totalRevenue,
+        totalCOGS,
+        profit,
+        profitMargin,
+        orders: ordersWithProducts,
+      };
+    }).filter(c => c.orders.length > 0)
+      .sort((a, b) => b.profit - a.profit);
+  }, [clients, orders, products]);
+
+  // Calculate KPI totals
+  const kpis = useMemo(() => {
+    const totalRevenue = clientProfitability.reduce((sum, c) => sum + c.totalRevenue, 0);
+    const totalCOGS = clientProfitability.reduce((sum, c) => sum + c.totalCOGS, 0);
+    const totalProfit = totalRevenue - totalCOGS;
+    const avgMargin = clientProfitability.length > 0 
+      ? clientProfitability.reduce((sum, c) => sum + c.profitMargin, 0) / clientProfitability.length 
+      : 0;
+    const totalStock = products.reduce((sum, p) => sum + Number(p.stock_kg), 0);
+    const lowStockCount = products.filter(p => p.status === 'low_stock' || p.status === 'out_of_stock').length;
+
+    return { totalRevenue, totalCOGS, totalProfit, avgMargin, totalStock, lowStockCount };
+  }, [clientProfitability, products]);
+
+  const isLoading = productsLoading || clientsLoading || ordersLoading;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <main className="container py-6 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <KPICard
+            title="Total Revenue"
+            value={`$${kpis.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            subtitle="All time"
+            icon={DollarSign}
+          />
+          <KPICard
+            title="Total Profit"
+            value={`$${kpis.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            subtitle={`${kpis.avgMargin.toFixed(1)}% avg margin`}
+            icon={TrendingUp}
+            trend={{ value: kpis.avgMargin, isPositive: kpis.avgMargin >= 25 }}
+          />
+          <KPICard
+            title="Total Inventory"
+            value={`${kpis.totalStock.toFixed(0)} kg`}
+            subtitle={kpis.lowStockCount > 0 ? `${kpis.lowStockCount} items low` : "All stocked"}
+            icon={Package}
+          />
+          <KPICard
+            title="Active Clients"
+            value={clientProfitability.length.toString()}
+            subtitle={`${clients.length} total`}
+            icon={Users}
+          />
+        </div>
+
+        {/* Revenue Chart */}
+        <RevenueChart orders={orders} products={products} />
+
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="clients" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="clients">Client Profitability</TabsTrigger>
+            <TabsTrigger value="inventory">Inventory</TabsTrigger>
+            <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="clients">
+            <Card>
+              <CardHeader>
+                <CardTitle>Client Profitability</CardTitle>
+                <CardDescription>
+                  Revenue, COGS, and profit analysis for each client
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ClientProfitabilityTable 
+                  clients={clientProfitability} 
+                  isLoading={isLoading} 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inventory">
+            <Card>
+              <CardHeader>
+                <CardTitle>Inventory Management</CardTitle>
+                <CardDescription>
+                  Update stock levels and status. All changes are tracked with version history.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InventoryTable 
+                  products={products} 
+                  isLoading={productsLoading} 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="recommendations">
+            <RecommendationsPanel 
+              clients={clientProfitability} 
+              products={products} 
+            />
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 };

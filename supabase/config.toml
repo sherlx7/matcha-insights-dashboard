@@ -1,1 +1,4 @@
 project_id = "upbgiacddynyryfnspdv"
+
+[functions.matcha-recommendations]
+verify_jwt = false
