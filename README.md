@@ -1,73 +1,118 @@
-# Welcome to your Lovable project
+<p align="center">
+  <img src="public/MatsuMatcha.jpeg" alt="MatsuMatcha Logo" width="200"/>
+</p>
 
-## Project info
+<h1 align="center">Matcha Insights Dashboard</h1>
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+<p align="center">
+  A business intelligence dashboard for premium matcha tea distribution and operations management.
+</p>
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Overview
 
-**Use Lovable**
+Matcha Insights Dashboard is a comprehensive analytics and operations platform designed for matcha tea distributors. It provides real-time visibility into financial performance, inventory management, client profitability, and AI-powered recommendations.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Features
 
-Changes made via Lovable will be committed automatically to this repo.
+### Financial Analytics
+- **Revenue & Profit Tracking** - Real-time KPIs with customizable date range filters
+- **Client Profitability Analysis** - Revenue, COGS, and profit margins per client
+- **Client Pricing & Costs** - Multi-currency cost breakdown (JPY→USD conversion, shipping, tax)
+- **AI Analysis & Forecasting** - Intelligent insights and trend predictions
 
-**Use your preferred IDE**
+### Inventory Management
+- **Stock Tracking** - Real-time inventory levels with low-stock alerts
+- **Supplier Management** - Track suppliers, exchange rates, and product sourcing
+- **Warehouse Arrivals** - Monitor incoming shipments and allocations
+- **Manual Adjustments** - Approval workflow for stock corrections
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Operations
+- **Orders Management** - Track and manage client orders
+- **Client Allocations** - Allocated vs. available inventory visibility
+- **Approval Workflow** - Supervisor approval for manual stock changes
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Tech Stack
 
-Follow these steps:
+- **Frontend:** React 18 + TypeScript
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS + shadcn/ui components
+- **Backend:** Supabase (PostgreSQL + Auth)
+- **Data Fetching:** TanStack React Query
+- **Charts:** Recharts
+- **Forms:** React Hook Form + Zod validation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Getting Started
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Prerequisites
 
-# Step 3: Install the necessary dependencies.
-npm i
+- Node.js 18+ (recommended: use [nvm](https://github.com/nvm-sh/nvm))
+- npm or bun
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/sherlx7/matcha-insights-dashboard.git
+
+# Navigate to the project directory
+cd matcha-insights-dashboard
+
+# Install dependencies
+npm install
+
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+Create a `.env` file in the root directory with your Supabase credentials:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-## What technologies are used for this project?
+## Available Scripts
 
-This project is built with:
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run tests |
+| `npm run test:watch` | Run tests in watch mode |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Project Structure
 
-## How can I deploy this project?
+```
+src/
+├── components/
+│   ├── dashboard/       # Dashboard-specific components
+│   │   ├── Header.tsx
+│   │   ├── KPICard.tsx
+│   │   ├── RevenueChart.tsx
+│   │   ├── InventoryTable.tsx
+│   │   ├── ClientPricingTable.tsx
+│   │   └── ...
+│   └── ui/              # Reusable UI components (shadcn)
+├── hooks/               # Custom React hooks
+├── pages/               # Page components
+├── types/               # TypeScript type definitions
+└── lib/                 # Utility functions
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## License
 
-## Can I connect a custom domain to my Lovable project?
+This project is private and proprietary.
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+<p align="center">
+  Built with care for matcha lovers everywhere
+</p>
