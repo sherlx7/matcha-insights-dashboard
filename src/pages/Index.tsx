@@ -11,6 +11,8 @@ import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { PendingApprovalsPanel } from "@/components/dashboard/PendingApprovalsPanel";
 import { AIInsightsTab } from "@/components/dashboard/AIInsightsTab";
 import { ProfitabilitySandbox } from "@/components/dashboard/sandbox/ProfitabilitySandbox";
+import { OnboardingProvider, useOnboarding } from "@/components/onboarding/OnboardingProvider";
+import { OnboardingTutorial } from "@/components/onboarding/OnboardingTutorial";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DateRange } from "react-day-picker";
@@ -42,8 +44,9 @@ import {
   Lock
 } from "lucide-react";
 
-const Index = () => {
+function DashboardContent() {
   const { isAdmin, permissions } = useAuth();
+  const { setOnTabChange, setOnSubTabChange } = useOnboarding();
 
   const { data: products = [], isLoading: productsLoading } = useMatchaProducts();
   const { data: clients = [], isLoading: clientsLoading } = useClients();
@@ -67,6 +70,39 @@ const Index = () => {
   };
 
   const [mainTab, setMainTab] = useState(getDefaultTab());
+  const [financialsSubTab, setFinancialsSubTab] = useState("pricing");
+  const [operationsSubTab, setOperationsSubTab] = useState("inventory");
+  const [sandboxSubTab, setSandboxSubTab] = useState("supplier");
+
+  // Register tab change handlers for tutorial navigation
+  useEffect(() => {
+    setOnTabChange(() => setMainTab);
+    return () => setOnTabChange(null);
+  }, [setOnTabChange]);
+
+  useEffect(() => {
+    setOnSubTabChange(() => (tab: string) => {
+      // Map tutorial subTab names to actual tab values
+      const subTabMap: Record<string, () => void> = {
+        // Financials sub-tabs
+        'overview': () => setFinancialsSubTab('pricing'),
+        'pricing': () => setFinancialsSubTab('pricing'),
+        'orders': () => setFinancialsSubTab('orders'),
+        'profitability': () => setFinancialsSubTab('clients'),
+        'ai': () => setFinancialsSubTab('ai-insights'),
+        // Operations sub-tabs
+        'stock': () => setOperationsSubTab('inventory'),
+        'arrivals': () => setOperationsSubTab('inventory'),
+        'allocations': () => setOperationsSubTab('inventory'),
+        'approvals': () => setOperationsSubTab('approvals'),
+        // Sandbox sub-tabs
+        'supplier': () => setSandboxSubTab('supplier'),
+        'client': () => setSandboxSubTab('client'),
+      };
+      subTabMap[tab]?.();
+    });
+    return () => setOnSubTabChange(null);
+  }, [setOnSubTabChange]);
 
   // Update tab when permissions change
   useEffect(() => {
@@ -160,13 +196,13 @@ const Index = () => {
       
       <main className="container py-6 space-y-6">
         {/* Date Range Filter */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-tutorial="date-filter">
           <h2 className="text-lg font-semibold">Dashboard Overview</h2>
           <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
         </div>
 
         {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5" data-tutorial="kpi-cards">
           <KPICard
             title="Total Revenue"
             value={formatSGD(kpis.totalRevenue)}
@@ -223,10 +259,12 @@ const Index = () => {
         {mainTab === "financials" && canAccessFinancials && (
           <div className="space-y-6">
             {/* Revenue Chart */}
-            <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
+            <div data-tutorial="revenue-chart">
+              <RevenueChart orders={filteredOrders} products={products} dateRange={dateRange} />
+            </div>
             
             {/* Financial Sub-tabs */}
-            <Tabs defaultValue="pricing" className="space-y-4">
+            <Tabs value={financialsSubTab} onValueChange={setFinancialsSubTab} className="space-y-4">
               <TabsList className="bg-muted/50 p-1">
                 <TabsTrigger value="pricing" className="flex items-center gap-2 data-[state=active]:bg-background">
                   <Calculator className="h-4 w-4" />
@@ -247,50 +285,58 @@ const Index = () => {
               </TabsList>
 
               <TabsContent value="pricing">
-                <ClientPricingTable
-                  clients={clients}
-                  products={products}
-                  orders={filteredOrders}
-                  suppliers={suppliers}
-                  supplierProducts={supplierProducts}
-                  arrivals={arrivals}
-                  allocations={allocations}
-                  isLoading={isLoading || isInventoryLoading}
-                />
+                <div data-tutorial="pricing-table">
+                  <ClientPricingTable
+                    clients={clients}
+                    products={products}
+                    orders={filteredOrders}
+                    suppliers={suppliers}
+                    supplierProducts={supplierProducts}
+                    arrivals={arrivals}
+                    allocations={allocations}
+                    isLoading={isLoading || isInventoryLoading}
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="orders">
-                <OrdersManagement
-                  orders={filteredOrders}
-                  clients={clients}
-                  products={products}
-                  isLoading={ordersLoading}
-                />
+                <div data-tutorial="orders-table">
+                  <OrdersManagement
+                    orders={filteredOrders}
+                    clients={clients}
+                    products={products}
+                    isLoading={ordersLoading}
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="clients">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Client Profitability</CardTitle>
-                    <CardDescription>
-                      Revenue, COGS, and profit analysis for each client
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ClientProfitabilityTable 
-                      clients={clientProfitability} 
-                      isLoading={isLoading} 
-                    />
-                  </CardContent>
-                </Card>
+                <div data-tutorial="profitability-table">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Client Profitability</CardTitle>
+                      <CardDescription>
+                        Revenue, COGS, and profit analysis for each client
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ClientProfitabilityTable 
+                        clients={clientProfitability} 
+                        isLoading={isLoading} 
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
 
               <TabsContent value="ai-insights">
-                <AIInsightsTab 
-                  clients={clientProfitability}
-                  products={products}
-                  orders={orders}
-                />
+                <div data-tutorial="ai-insights">
+                  <AIInsightsTab 
+                    clients={clientProfitability}
+                    products={products}
+                    orders={orders}
+                  />
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -299,7 +345,7 @@ const Index = () => {
         {/* Operations Content */}
         {mainTab === "operations" && canAccessOperations && (
           <div className="space-y-6">
-            <Tabs defaultValue="inventory" className="space-y-4">
+            <Tabs value={operationsSubTab} onValueChange={setOperationsSubTab} className="space-y-4">
               <TabsList>
                 <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
                 <TabsTrigger value="stock" className="flex items-center gap-2">
@@ -317,15 +363,17 @@ const Index = () => {
               </TabsList>
 
               <TabsContent value="inventory">
-                <InventoryManagement
-                  products={products}
-                  suppliers={suppliers}
-                  supplierProducts={supplierProducts}
-                  arrivals={arrivals}
-                  allocations={allocations}
-                  clients={clients}
-                  isLoading={productsLoading || isInventoryLoading}
-                />
+                <div data-tutorial="stock-levels">
+                  <InventoryManagement
+                    products={products}
+                    suppliers={suppliers}
+                    supplierProducts={supplierProducts}
+                    arrivals={arrivals}
+                    allocations={allocations}
+                    clients={clients}
+                    isLoading={productsLoading || isInventoryLoading}
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="stock">
@@ -352,7 +400,9 @@ const Index = () => {
               </TabsContent>
 
               <TabsContent value="approvals">
-                <PendingApprovalsPanel products={products} />
+                <div data-tutorial="pending-approvals">
+                  <PendingApprovalsPanel products={products} />
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -360,17 +410,29 @@ const Index = () => {
 
         {/* Sandbox Content */}
         {mainTab === "sandbox" && canAccessSandbox && (
-          <ProfitabilitySandbox
-            clients={clients}
-            products={products}
-            orders={orders}
-            suppliers={suppliers}
-            supplierProducts={supplierProducts}
-            isLoading={productsLoading || clientsLoading || ordersLoading || suppliersLoading || supplierProductsLoading}
-          />
+          <div data-tutorial="supplier-sandbox">
+            <ProfitabilitySandbox
+              clients={clients}
+              products={products}
+              orders={orders}
+              suppliers={suppliers}
+              supplierProducts={supplierProducts}
+              isLoading={productsLoading || clientsLoading || ordersLoading || suppliersLoading || supplierProductsLoading}
+            />
+          </div>
         )}
       </main>
+      
+      <OnboardingTutorial />
     </div>
+  );
+}
+
+const Index = () => {
+  return (
+    <OnboardingProvider>
+      <DashboardContent />
+    </OnboardingProvider>
   );
 };
 
