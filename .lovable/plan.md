@@ -1,76 +1,84 @@
 
+# Plan: Improve Revenue Forecast Accuracy in Sandbox
 
-# Add Test Data for Financial Calculations
+## Summary
+The current sandbox forecast has calculation accuracy issues that need to be fixed. The main problem is that the "Actual" scenario baseline uses simulated values instead of true database values, making comparisons misleading.
 
-This plan will populate the database with realistic test data so you can see the Client Pricing & Costs feature working with proper calculations.
+## What Needs to Change
 
-## What Will Be Added
+### 1. Separate Actual vs Simulated Volume Tracking
+Store original client monthly volumes separately from simulation state so "Actual" scenario uses real historical data.
 
-### 1. Product Pricing in Yen
-Update 4 products with Japanese Yen costs and selling prices:
+### 2. Pass Original Values to Comparison Chart
+Provide the chart with both:
+- Original database values (for "Actual" bars)
+- Simulated values (for "Simulated" bars)
 
-| Product | Cost (JPY/kg) | Selling Price (USD/kg) |
-|---------|---------------|------------------------|
-| Uji Premium | ¥42,000 | $350 |
-| Ume 梅 | ¥36,000 | $300 |
-| Kagoshima Organic | ¥27,000 | $220 |
-| Shizuoka Blend | ¥22,500 | $190 |
-
-### 2. Supplier Exchange Rates
-Update exchange rates to reflect realistic market variations:
-
-| Supplier | Exchange Rate (JPY→USD) |
-|----------|-------------------------|
-| Kyoto Tea Gardens | 0.0067 (current rate) |
-| Nishio Matcha Co | 0.0065 |
-| Kagoshima Organic Farms | 0.0068 |
-| Shizuoka Premium Tea | 0.0066 |
-
-### 3. Client Discounts
-Add tiered discounts for loyal/volume clients:
-
-| Client | Discount | Delivery Day |
-|--------|----------|--------------|
-| Zen Cafe Tokyo | 5% | 15th |
-| Matcha & Co | 8% | 1st |
-| Pacific Tea House | 3% | 20th |
-| Green Leaf Bakery | 0% | 10th |
-| Sakura Sweets | 10% | 5th |
-
-## Expected Result
-
-After running these updates, the **Client Pricing & Costs** tab will display:
-- Cost breakdown: Yen price → USD conversion → +$15 shipping → +9% tax → Total cost
-- Per-client effective prices with discounts applied
-- Profit per kg calculations
-- Monthly volume and profit projections based on order history
-
----
+### 3. Use Product-Specific Orders for Revenue Calculation
+Instead of averaging all product prices, calculate revenue based on actual client-product order patterns from historical data.
 
 ## Technical Details
 
-### SQL Updates to Execute
+### File Changes
 
-```sql
--- 1. Update matcha_products with JPY costs and selling prices
-UPDATE matcha_products SET cost_per_kg_jpy = 42000, selling_price_per_kg = 350 WHERE name = 'Uji Premium';
-UPDATE matcha_products SET cost_per_kg_jpy = 36000, selling_price_per_kg = 300 WHERE name = 'Ume 梅';
-UPDATE matcha_products SET cost_per_kg_jpy = 27000, selling_price_per_kg = 220 WHERE name = 'Kagoshima Organic';
-UPDATE matcha_products SET cost_per_kg_jpy = 22500, selling_price_per_kg = 190 WHERE name = 'Shizuoka Blend';
+**src/components/dashboard/sandbox/ProfitabilitySandbox.tsx**
+- Create a new `originalState` object that captures database values on load
+- Pass this original state to `ScenarioComparisonChart` for accurate "Actual" calculations
+- Add a `useMemo` to compute historical volumes from orders data
 
--- 2. Update suppliers with varied exchange rates
-UPDATE suppliers SET exchange_rate_jpy_usd = 0.0065 WHERE name = 'Nishio Matcha Co';
-UPDATE suppliers SET exchange_rate_jpy_usd = 0.0068 WHERE name = 'Kagoshima Organic Farms';
-UPDATE suppliers SET exchange_rate_jpy_usd = 0.0066 WHERE name = 'Shizuoka Premium Tea';
+**src/components/dashboard/sandbox/ScenarioComparisonChart.tsx**
+- Add new props: `originalSupplierState` and `originalClientState`
+- Update `forecastData` calculation:
+  - "Actual" scenario uses original database values exclusively
+  - "Simulated" scenario uses current simulation state
+- Fix volume calculation to use actual historical order data for baseline
+- Consider weighting product prices by historical order frequency per client
 
--- 3. Update clients with discounts and delivery schedules
-UPDATE clients SET discount_percent = 5, delivery_day_of_month = 15 WHERE name = 'Zen Cafe Tokyo';
-UPDATE clients SET discount_percent = 8, delivery_day_of_month = 1 WHERE name = 'Matcha & Co';
-UPDATE clients SET discount_percent = 3, delivery_day_of_month = 20 WHERE name = 'Pacific Tea House';
-UPDATE clients SET discount_percent = 0, delivery_day_of_month = 10 WHERE name = 'Green Leaf Bakery';
-UPDATE clients SET discount_percent = 10, delivery_day_of_month = 5 WHERE name = 'Sakura Sweets';
+**src/components/dashboard/sandbox/ClientSandbox.tsx**
+- Store original volumes separately from simulation state
+- Display difference indicators between original and simulated values
+
+### Data Flow After Fix
+
+```text
+Database Values (orders, suppliers, products)
+         |
+         v
++-------------------+
+| Original State    |  <-- Captured once on load, never modified
+| - exchangeRates   |
+| - productCostsJpy |
+| - clientVolumes   |
+| - sellingPrices   |
++-------------------+
+         |
+         +----------------+
+         |                |
+         v                v
+   "Actual Scenario"   "Simulated Scenario"
+   (uses original)     (uses simulation state)
 ```
 
-### No Code Changes Required
-This is a data-only update. The existing `ClientPricingTable.tsx` component will automatically display the calculations once the data is populated.
+### Calculation Formula Improvements
 
+**For Revenue:**
+```
+Per Client Monthly Revenue = SUM over products they order of:
+  (Product Selling Price * (1 - Client Discount%)) * Historical Monthly Volume for that product
+```
+
+**For COGS:**
+```
+Per Product Cost = (Cost JPY * Exchange Rate + Shipping) * 1.09
+Per Client Monthly COGS = SUM of (Product Cost * Monthly Volume for that product)
+```
+
+**For Forecast:**
+- Use historical trend analysis instead of hardcoded 2% growth
+- Or allow user to set growth assumptions as a sandbox input
+
+## Result
+After these changes:
+- "Actual" bars will show true projections based on current database values
+- "Simulated" bars will show how changes affect the forecast
+- The "Profit Impact" and "Margin Shift" metrics will be accurate comparisons
