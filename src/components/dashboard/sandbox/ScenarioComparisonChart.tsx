@@ -1,0 +1,223 @@
+import { useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { Client, MatchaProduct, Supplier, SupplierProduct } from "@/types/database";
+import { SupplierSimulationState } from "./SupplierSandbox";
+import { ClientSimulationState } from "./ClientSandbox";
+import { SHIPPING_COST_PER_KG, IMPORT_TAX_RATE } from "@/types/database";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+
+interface ScenarioComparisonChartProps {
+  clients: Client[];
+  products: MatchaProduct[];
+  suppliers: Supplier[];
+  supplierProducts: SupplierProduct[];
+  supplierSimulation: SupplierSimulationState;
+  clientSimulation: ClientSimulationState;
+}
+
+export function ScenarioComparisonChart({
+  clients,
+  products,
+  suppliers,
+  supplierProducts,
+  supplierSimulation,
+  clientSimulation,
+}: ScenarioComparisonChartProps) {
+  const productMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
+  const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
+
+  const primarySupplierMap = useMemo(() => {
+    const map = new Map<string, Supplier>();
+    supplierProducts.filter(sp => sp.is_primary_supplier).forEach(sp => {
+      const supplier = supplierMap.get(sp.supplier_id);
+      if (supplier) {
+        map.set(sp.product_id, supplier);
+      }
+    });
+    return map;
+  }, [supplierProducts, supplierMap]);
+
+  const calculateCost = (productId: string, simulated: boolean) => {
+    const product = productMap.get(productId);
+    const supplier = primarySupplierMap.get(productId);
+    if (!product) return 0;
+
+    const costJpy = simulated 
+      ? (supplierSimulation.productCostsJpy[productId] ?? (product.cost_per_kg_jpy || 0))
+      : (product.cost_per_kg_jpy || 0);
+
+    const exchangeRate = supplier 
+      ? (simulated 
+          ? (supplierSimulation.exchangeRates[supplier.id] ?? (supplier.exchange_rate_jpy_usd || 0.0067))
+          : (supplier.exchange_rate_jpy_usd || 0.0067))
+      : 0.0067;
+
+    const shipping = simulated ? supplierSimulation.shippingCostPerKg : SHIPPING_COST_PER_KG;
+
+    const costUsd = costJpy * exchangeRate;
+    const subtotal = costUsd + shipping;
+    const totalCost = subtotal * (1 + IMPORT_TAX_RATE);
+
+    return totalCost;
+  };
+
+  const forecastData = useMemo(() => {
+    const months = ["Month 1", "Month 2", "Month 3", "Month 4", "Month 5", "Month 6"];
+    
+    return months.map((month, idx) => {
+      let actualRevenue = 0;
+      let actualCOGS = 0;
+      let simulatedRevenue = 0;
+      let simulatedCOGS = 0;
+
+      clients.forEach(client => {
+        const avgSellingPrice = products.reduce((sum, p) => 
+          sum + (p.selling_price_per_kg || 0), 0) / Math.max(1, products.filter(p => p.selling_price_per_kg).length);
+        
+        const avgSimSellingPrice = products.reduce((sum, p) => 
+          sum + (clientSimulation.sellingPrices[p.id] ?? (p.selling_price_per_kg || 0)), 0) / Math.max(1, products.filter(p => p.selling_price_per_kg).length);
+
+        const actualDiscount = client.discount_percent || 0;
+        const simDiscount = clientSimulation.discounts[client.id] ?? actualDiscount;
+
+        const baseVolume = clientSimulation.monthlyVolumes[client.id] ?? 20;
+        const growthFactor = 1 + (idx * 0.02);
+
+        const actualVolume = baseVolume * growthFactor;
+        const simVolume = (clientSimulation.monthlyVolumes[client.id] ?? baseVolume) * growthFactor;
+
+        const actualEffectivePrice = avgSellingPrice * (1 - actualDiscount / 100);
+        const simEffectivePrice = avgSimSellingPrice * (1 - simDiscount / 100);
+
+        actualRevenue += actualVolume * actualEffectivePrice;
+        simulatedRevenue += simVolume * simEffectivePrice;
+
+        const avgActualCost = products.reduce((sum, p) => sum + calculateCost(p.id, false), 0) / Math.max(1, products.length);
+        const avgSimCost = products.reduce((sum, p) => sum + calculateCost(p.id, true), 0) / Math.max(1, products.length);
+
+        actualCOGS += actualVolume * avgActualCost;
+        simulatedCOGS += simVolume * avgSimCost;
+      });
+
+      const actualProfit = actualRevenue - actualCOGS;
+      const simulatedProfit = simulatedRevenue - simulatedCOGS;
+      const actualMargin = actualRevenue > 0 ? (actualProfit / actualRevenue) * 100 : 0;
+      const simulatedMargin = simulatedRevenue > 0 ? (simulatedProfit / simulatedRevenue) * 100 : 0;
+
+      return {
+        month,
+        actualProfit: Math.round(actualProfit),
+        simulatedProfit: Math.round(simulatedProfit),
+        actualRevenue: Math.round(actualRevenue),
+        simulatedRevenue: Math.round(simulatedRevenue),
+        actualMargin,
+        simulatedMargin,
+      };
+    });
+  }, [clients, products, clientSimulation, supplierSimulation, calculateCost]);
+
+  const summary = useMemo(() => {
+    const totalActualProfit = forecastData.reduce((sum, d) => sum + d.actualProfit, 0);
+    const totalSimProfit = forecastData.reduce((sum, d) => sum + d.simulatedProfit, 0);
+    const profitDiff = totalSimProfit - totalActualProfit;
+    const profitDiffPercent = totalActualProfit > 0 ? (profitDiff / totalActualProfit) * 100 : 0;
+
+    const totalActualRevenue = forecastData.reduce((sum, d) => sum + d.actualRevenue, 0);
+    const totalSimRevenue = forecastData.reduce((sum, d) => sum + d.simulatedRevenue, 0);
+    const revenueDiff = totalSimRevenue - totalActualRevenue;
+
+    const avgActualMargin = forecastData.reduce((sum, d) => sum + d.actualMargin, 0) / forecastData.length;
+    const avgSimMargin = forecastData.reduce((sum, d) => sum + d.simulatedMargin, 0) / forecastData.length;
+    const marginDiff = avgSimMargin - avgActualMargin;
+
+    return {
+      totalActualProfit,
+      totalSimProfit,
+      profitDiff,
+      profitDiffPercent,
+      revenueDiff,
+      avgActualMargin,
+      avgSimMargin,
+      marginDiff,
+    };
+  }, [forecastData]);
+
+  const chartConfig = {
+    actualProfit: { label: "Current Scenario", color: "hsl(var(--muted-foreground))" },
+    simulatedProfit: { label: "Simulated Scenario", color: "hsl(var(--primary))" },
+  };
+
+  const TrendIcon = summary.profitDiff > 0 ? TrendingUp : summary.profitDiff < 0 ? TrendingDown : Minus;
+  const trendColor = summary.profitDiff > 0 ? "text-primary" : summary.profitDiff < 0 ? "text-destructive" : "text-muted-foreground";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>6-Month Profit Forecast Comparison</CardTitle>
+        <CardDescription>
+          Compare current profitability trajectory vs simulated scenario
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border bg-card p-4">
+            <div className="text-sm text-muted-foreground">Profit Impact</div>
+            <div className={`text-2xl font-bold flex items-center gap-2 ${trendColor}`}>
+              <TrendIcon className="h-5 w-5" />
+              {summary.profitDiff >= 0 ? "+" : ""}${summary.profitDiff.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {summary.profitDiffPercent >= 0 ? "+" : ""}{summary.profitDiffPercent.toFixed(1)}% change
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card p-4">
+            <div className="text-sm text-muted-foreground">Revenue Impact</div>
+            <div className="text-2xl font-bold">
+              {summary.revenueDiff >= 0 ? "+" : ""}${summary.revenueDiff.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Over 6 months</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4">
+            <div className="text-sm text-muted-foreground">Margin Shift</div>
+            <div className={`text-2xl font-bold ${summary.marginDiff >= 0 ? "text-primary" : "text-destructive"}`}>
+              {summary.marginDiff >= 0 ? "+" : ""}{summary.marginDiff.toFixed(1)}%
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {summary.avgActualMargin.toFixed(1)}% → {summary.avgSimMargin.toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        <ChartContainer config={chartConfig} className="h-[350px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={forecastData} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="month" className="text-xs" />
+              <YAxis 
+                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                className="text-xs"
+              />
+              <Tooltip content={<ChartTooltipContent />} />
+              <Legend />
+              <Bar 
+                dataKey="actualProfit" 
+                name="Current Scenario" 
+                fill="hsl(var(--muted-foreground))" 
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar 
+                dataKey="simulatedProfit" 
+                name="Simulated Scenario" 
+                fill="hsl(var(--primary))" 
+                radius={[4, 4, 0, 0]}
+              />
+              <ReferenceLine y={0} stroke="hsl(var(--border))" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}

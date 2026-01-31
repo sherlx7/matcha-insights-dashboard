@@ -11,6 +11,7 @@ import { OrdersManagement } from "@/components/dashboard/OrdersManagement";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { PendingApprovalsPanel } from "@/components/dashboard/PendingApprovalsPanel";
 import { FinancialAnalysis } from "@/components/dashboard/FinancialAnalysis";
+import { ProfitabilitySandbox } from "@/components/dashboard/sandbox/ProfitabilitySandbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DateRange } from "react-day-picker";
@@ -311,6 +312,18 @@ const Index = () => {
               </TabsContent>
             </Tabs>
           </div>
+        )}
+
+        {/* Sandbox Content */}
+        {mainTab === "sandbox" && (
+          <ProfitabilitySandbox
+            clients={clients}
+            products={products}
+            orders={orders}
+            suppliers={suppliers}
+            supplierProducts={supplierProducts}
+            isLoading={productsLoading || clientsLoading || ordersLoading || suppliersLoading || supplierProductsLoading}
+          />
         )}
       </main>
     </div>
