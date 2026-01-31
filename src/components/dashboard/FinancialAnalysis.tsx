@@ -3,6 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   AreaChart, 
   Area, 
@@ -16,8 +24,9 @@ import {
 import { ClientProfitability, MatchaProduct, ClientOrder } from "@/types/database";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, TrendingUp, RefreshCw, Sparkles } from "lucide-react";
+import { Brain, TrendingUp, RefreshCw, Sparkles, Download, FileText, FileSpreadsheet } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 
 interface FinancialAnalysisProps {
   clients: ClientProfitability[];
@@ -111,19 +120,86 @@ export function FinancialAnalysis({ clients, products, orders }: FinancialAnalys
                 </CardDescription>
               </div>
             </div>
-            <Button onClick={runAnalysis} disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generate Analysis
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Export Reports</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => exportToCSV({ clients, orders, products }, 'profitability')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Client Profitability (CSV)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => exportToCSV({ clients, orders, products }, 'orders')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Sales Orders (CSV)
+                  </DropdownMenuItem>
+                  {result?.forecast && (
+                    <DropdownMenuItem 
+                      onClick={() => exportToCSV({ clients, orders, products, forecast: result.forecast }, 'forecast')}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Forecast (CSV)
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => exportToPDF({ clients, orders, products }, 'profitability')}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Client Profitability (PDF)
+                  </DropdownMenuItem>
+                  {result?.forecast && (
+                    <DropdownMenuItem 
+                      onClick={() => exportToPDF({ 
+                        clients, 
+                        orders, 
+                        products, 
+                        forecast: result.forecast,
+                        analysis: result.analysis 
+                      }, 'forecast')}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Forecast & Analysis (PDF)
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem 
+                    onClick={() => exportToPDF({ 
+                      clients, 
+                      orders, 
+                      products, 
+                      forecast: result?.forecast,
+                      analysis: result?.analysis 
+                    }, 'full')}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Full Report (PDF)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={runAnalysis} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Analysis
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
