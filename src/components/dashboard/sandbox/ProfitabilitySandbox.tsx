@@ -27,6 +27,7 @@ export function ProfitabilitySandbox({
 }: ProfitabilitySandboxProps) {
   const [view, setView] = useState<"suppliers" | "clients">("suppliers");
 
+  // Calculate historical monthly volumes per client from orders data
   const clientMonthlyVolumes = useMemo(() => {
     const volumes: Record<string, number> = {};
     clients.forEach(client => {
@@ -41,6 +42,22 @@ export function ProfitabilitySandbox({
     return volumes;
   }, [clients, orders]);
 
+  // Original state captured once from database values - never modified by simulation
+  const originalSupplierState = useMemo<SupplierSimulationState>(() => ({
+    exchangeRates: Object.fromEntries(suppliers.map(s => [s.id, s.exchange_rate_jpy_usd || 0.0067])),
+    productCostsJpy: Object.fromEntries(products.map(p => [p.id, p.cost_per_kg_jpy || 0])),
+    shippingCostPerKg: SHIPPING_COST_PER_KG,
+    leadTimes: Object.fromEntries(suppliers.map(s => [s.id, s.lead_time_days || 14])),
+  }), [suppliers, products]);
+
+  const originalClientState = useMemo<ClientSimulationState>(() => ({
+    discounts: Object.fromEntries(clients.map(c => [c.id, c.discount_percent || 0])),
+    monthlyVolumes: clientMonthlyVolumes,
+    sellingPrices: Object.fromEntries(products.map(p => [p.id, p.selling_price_per_kg || 0])),
+    paymentTerms: Object.fromEntries(clients.map(c => [c.id, 30])),
+  }), [clients, products, clientMonthlyVolumes]);
+
+  // Simulation state - user can modify these
   const [supplierSimulation, setSupplierSimulation] = useState<SupplierSimulationState>(() => ({
     exchangeRates: Object.fromEntries(suppliers.map(s => [s.id, s.exchange_rate_jpy_usd || 0.0067])),
     productCostsJpy: Object.fromEntries(products.map(p => [p.id, p.cost_per_kg_jpy || 0])),
@@ -55,6 +72,7 @@ export function ProfitabilitySandbox({
     paymentTerms: Object.fromEntries(clients.map(c => [c.id, 30])),
   }));
 
+  // Re-initialize simulation state when data loads
   useMemo(() => {
     if (suppliers.length > 0 && Object.keys(supplierSimulation.exchangeRates).length === 0) {
       setSupplierSimulation({
@@ -107,6 +125,9 @@ export function ProfitabilitySandbox({
         supplierProducts={supplierProducts}
         supplierSimulation={supplierSimulation}
         clientSimulation={clientSimulation}
+        originalSupplierState={originalSupplierState}
+        originalClientState={originalClientState}
+        orders={orders}
       />
 
       <Tabs value={view} onValueChange={(v) => setView(v as "suppliers" | "clients")}>
