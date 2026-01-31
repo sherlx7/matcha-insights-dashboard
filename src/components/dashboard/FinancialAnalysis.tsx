@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { MarkdownViewer } from "@/components/ui/markdown-viewer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -211,11 +213,9 @@ export function FinancialAnalysis({ clients, products, orders }: FinancialAnalys
               <Skeleton className="h-32 w-full" />
             </div>
           ) : result ? (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <div className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
-                {result.analysis}
-              </div>
-            </div>
+            <ScrollArea className="h-[400px] pr-4">
+              <MarkdownViewer content={result.analysis} />
+            </ScrollArea>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Brain className="h-12 w-12 mx-auto mb-4 opacity-20" />
