@@ -8,7 +8,9 @@ import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { InventoryManagement } from "@/components/dashboard/InventoryManagement";
 import { OrdersManagement } from "@/components/dashboard/OrdersManagement";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { PendingApprovalsPanel } from "@/components/dashboard/PendingApprovalsPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,13 +23,16 @@ import {
   useWarehouseArrivals,
   useClientAllocations,
 } from "@/hooks/useMatchaData";
+import { useStockChangeRequests } from "@/hooks/useStockChangeRequests";
 import { ClientProfitability } from "@/types/database";
 import { 
   DollarSign, 
   Package, 
   TrendingUp, 
   Users,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  Info
 } from "lucide-react";
 
 const Index = () => {
@@ -109,6 +114,10 @@ const Index = () => {
   const isLoading = productsLoading || clientsLoading || ordersLoading;
   const isInventoryLoading = suppliersLoading || supplierProductsLoading || arrivalsLoading || allocationsLoading;
 
+  // Get pending approvals count for badge
+  const { data: pendingRequests = [] } = useStockChangeRequests('pending');
+  const pendingCount = pendingRequests.length;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -165,7 +174,18 @@ const Index = () => {
             <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
             <TabsTrigger value="orders">Sales Orders</TabsTrigger>
             <TabsTrigger value="clients">Client Profitability</TabsTrigger>
-            <TabsTrigger value="stock">Quick Stock Update</TabsTrigger>
+            <TabsTrigger value="stock" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Manual Stock Adjustments
+            </TabsTrigger>
+            <TabsTrigger value="approvals" className="flex items-center gap-2">
+              Approvals
+              {pendingCount > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500 text-amber-50 px-1.5 py-0.5 text-xs font-medium">
+                  {pendingCount}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
           </TabsList>
 
@@ -210,18 +230,28 @@ const Index = () => {
           <TabsContent value="stock">
             <Card>
               <CardHeader>
-                <CardTitle>Quick Stock Update</CardTitle>
+                <CardTitle>Manual Stock Adjustments</CardTitle>
                 <CardDescription>
-                  Update stock levels and status. All changes are tracked with version history.
+                  Request stock changes with supervisor approval. Stock is usually automated—use this for exceptions only.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    Stock updates are typically automated from warehouse systems. Manual adjustments require supervisor approval for audit purposes (e.g., reservations, damages, quality issues).
+                  </AlertDescription>
+                </Alert>
                 <InventoryTable 
                   products={products} 
                   isLoading={productsLoading} 
                 />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="approvals">
+            <PendingApprovalsPanel products={products} />
           </TabsContent>
 
           <TabsContent value="recommendations">

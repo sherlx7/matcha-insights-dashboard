@@ -229,6 +229,62 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_change_requests: {
+        Row: {
+          change_type: string
+          created_at: string
+          id: string
+          new_stock_kg: number | null
+          notes: string | null
+          product_id: string
+          quantity_kg: number
+          reason: string
+          requested_by: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          id?: string
+          new_stock_kg?: number | null
+          notes?: string | null
+          product_id: string
+          quantity_kg: number
+          reason: string
+          requested_by?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          id?: string
+          new_stock_kg?: number | null
+          notes?: string | null
+          product_id?: string
+          quantity_kg?: number
+          reason?: string
+          requested_by?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_change_requests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "matcha_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_products: {
         Row: {
           created_at: string
