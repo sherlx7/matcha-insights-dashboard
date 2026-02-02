@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'ADMIN' | 'VIEWER' | 'USER';
+}
 
 interface Profile {
   id: string;
@@ -24,7 +31,7 @@ interface Permissions {
 
 interface AuthState {
   user: User | null;
-  session: Session | null;
+  session: { token: string } | null;
   profile: Profile | null;
   permissions: Permissions | null;
   isLoading: boolean;
@@ -43,113 +50,127 @@ export function useAuth() {
     isApproved: false,
   });
 
-  const fetchUserData = async (userId: string) => {
-    try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+  const checkAuth = async () => {
+    const token = localStorage.getItem('matcha_auth_token');
+    const storedUser = localStorage.getItem('matcha_user');
 
-      // Fetch role
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
-
-      // Fetch permissions
-      const { data: permissionsData } = await supabase
-        .from('user_permissions')
-        .select('can_access_financials, can_access_operations, can_access_sandbox')
-        .eq('user_id', userId)
-        .single();
-
-      const isAdmin = roleData?.role === 'admin';
-      const isApproved = profileData?.approval_status === 'approved';
-
-      return {
-        profile: profileData as Profile | null,
-        permissions: permissionsData as Permissions | null,
-        isAdmin,
-        isApproved,
-      };
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      return {
+    if (!token || !storedUser) {
+      setAuthState({
+        user: null,
+        session: null,
         profile: null,
         permissions: null,
+        isLoading: false,
         isAdmin: false,
         isApproved: false,
+      });
+      return;
+    }
+
+    try {
+      // Verify token with backend
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Token invalid, clear storage
+        localStorage.removeItem('matcha_auth_token');
+        localStorage.removeItem('matcha_user');
+        setAuthState({
+          user: null,
+          session: null,
+          profile: null,
+          permissions: null,
+          isLoading: false,
+          isAdmin: false,
+          isApproved: false,
+        });
+        return;
+      }
+
+      const userData = await response.json();
+      const user = userData.user;
+      const isAdmin = user.role === 'ADMIN';
+
+      // Create a profile-like object from user data
+      const profile: Profile = {
+        id: user.id,
+        user_id: user.id,
+        email: user.email,
+        full_name: user.name,
+        avatar_url: null,
+        approval_status: 'approved', // All users are approved in our system
+        approved_at: null,
+        approved_by: null,
+        has_completed_tutorial: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
+
+      // All ADMIN users have full permissions
+      const permissions: Permissions = {
+        can_access_financials: isAdmin,
+        can_access_operations: isAdmin,
+        can_access_sandbox: isAdmin,
+      };
+
+      setAuthState({
+        user,
+        session: { token },
+        profile,
+        permissions,
+        isLoading: false,
+        isAdmin,
+        isApproved: true,
+      });
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      setAuthState({
+        user: null,
+        session: null,
+        profile: null,
+        permissions: null,
+        isLoading: false,
+        isAdmin: false,
+        isApproved: false,
+      });
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          const userData = await fetchUserData(session.user.id);
-          setAuthState({
-            session,
-            user: session.user,
-            ...userData,
-            isLoading: false,
-          });
-        } else {
-          setAuthState({
-            session: null,
-            user: null,
-            profile: null,
-            permissions: null,
-            isAdmin: false,
-            isApproved: false,
-            isLoading: false,
-          });
-        }
-      }
-    );
+    checkAuth();
 
-    // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const userData = await fetchUserData(session.user.id);
-        setAuthState({
-          session,
-          user: session.user,
-          ...userData,
-          isLoading: false,
-        });
-      } else {
-        setAuthState({
-          session: null,
-          user: null,
-          profile: null,
-          permissions: null,
-          isAdmin: false,
-          isApproved: false,
-          isLoading: false,
-        });
+    // Listen for storage changes (login/logout from other tabs)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'matcha_auth_token') {
+        checkAuth();
       }
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('matcha_auth_token');
+    localStorage.removeItem('matcha_user');
+    setAuthState({
+      user: null,
+      session: null,
+      profile: null,
+      permissions: null,
+      isLoading: false,
+      isAdmin: false,
+      isApproved: false,
+    });
+    window.location.href = '/auth';
   };
 
   const refetchProfile = async () => {
-    if (authState.user) {
-      const userData = await fetchUserData(authState.user.id);
-      setAuthState((prev) => ({
-        ...prev,
-        ...userData,
-      }));
-    }
+    await checkAuth();
   };
 
   return {

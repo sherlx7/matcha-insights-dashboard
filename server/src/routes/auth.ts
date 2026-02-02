@@ -6,23 +6,23 @@ import { generateToken, requireAuth, rateLimit } from '../middleware/auth.js';
 
 const router = Router();
 
-// Validation schemas
+// Validation schemas - password minimum 6 characters
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().optional(),
 });
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string(),
+  password: z.string().min(1),
 });
 
 /**
  * POST /api/auth/register
- * Register a new user
+ * Register a new user - ALL users get ADMIN role
  */
-router.post('/register', rateLimit(3, 60000), async (req, res) => {
+router.post('/register', rateLimit(100, 60000), async (req, res) => {
   try {
     const data = registerSchema.parse(req.body);
 
@@ -38,14 +38,13 @@ router.post('/register', rateLimit(3, 60000), async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    // Create user (first user is admin)
-    const userCount = await prisma.user.count();
+    // Create user with ADMIN role (all users get admin access)
     const user = await prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
         name: data.name,
-        role: userCount === 0 ? 'ADMIN' : 'VIEWER',
+        role: 'ADMIN',
       },
       select: { id: true, email: true, name: true, role: true },
     });
@@ -69,7 +68,7 @@ router.post('/register', rateLimit(3, 60000), async (req, res) => {
  * POST /api/auth/login
  * Login with email and password
  */
-router.post('/login', rateLimit(5, 60000), async (req, res) => {
+router.post('/login', rateLimit(100, 60000), async (req, res) => {
   try {
     const data = loginSchema.parse(req.body);
 
